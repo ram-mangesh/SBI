@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ComponentType, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { KeyRound, LogIn, Mail, Phone, ShieldCheck, UserPlus } from 'lucide-react';
+import { KeyRound, LogIn, Mail, Phone, ShieldCheck, UserPlus, Zap, User, Briefcase, Shield } from 'lucide-react';
 import { authApi } from '@/features/auth/api/auth.api';
 import type {
   AuthFlowResult,
@@ -126,6 +126,138 @@ function recordLoginAttempt() {
   sessionStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify([...loginAttempts(), Date.now()]));
 }
 
+// ── Demo Mode helpers ─────────────────────────────────────────────────────
+const DEMO_USERS = {
+  customer: {
+    id: 'demo-customer-001',
+    email: 'customer@demo.bankmate.ai',
+    mobile: '9876543210',
+    fullName: 'Rahul Sharma (Demo)',
+    roles: [UserRole.CUSTOMER],
+    customerId: 'demo-customer-001',
+    profileCompleted: true,
+    kycStatus: 'APPROVED',
+  },
+  rm: {
+    id: 'demo-rm-001',
+    email: 'rm@demo.bankmate.ai',
+    mobile: '9876543211',
+    fullName: 'Priya Mehta (Demo RM)',
+    roles: [UserRole.RELATIONSHIP_MANAGER],
+    customerId: 'demo-rm-001',
+    profileCompleted: true,
+    kycStatus: 'APPROVED',
+  },
+  admin: {
+    id: 'demo-admin-001',
+    email: 'admin@demo.bankmate.ai',
+    mobile: '9876543212',
+    fullName: 'Amit Kumar (Demo Admin)',
+    roles: [UserRole.ADMIN],
+    customerId: 'demo-admin-001',
+    profileCompleted: true,
+    kycStatus: 'APPROVED',
+  },
+} as const;
+
+function DemoAccessPanel() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState<'customer' | 'rm' | 'admin' | null>(null);
+
+  const enterDemo = (role: 'customer' | 'rm' | 'admin') => {
+    setLoading(role);
+    const user = DEMO_USERS[role];
+    useAuthStore.getState().setSession({
+      user: { ...user, kycStatus: 'APPROVED' },
+      accessToken: `demo-access-token-${role}`,
+      refreshToken: `demo-refresh-token-${role}`,
+      expiresIn: 86400,
+      rememberMe: false,
+    });
+    overlay.success(`Welcome to Demo — ${role === 'customer' ? 'Customer' : role === 'rm' ? 'Relationship Manager' : 'Admin'} view!`);
+    setTimeout(() => {
+      const route = role === 'admin' ? ROUTES.ADMIN_DASHBOARD : role === 'rm' ? ROUTES.RM_DASHBOARD : ROUTES.DASHBOARD;
+      navigate(route, { replace: true });
+      setLoading(null);
+    }, 400);
+  };
+
+  const demoRoles = [
+    {
+      key: 'customer' as const,
+      label: 'Customer',
+      desc: 'Dashboard, Goals, KYC, Products',
+      icon: User,
+      color: 'from-blue-500 to-blue-600',
+      bg: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
+      text: 'text-blue-700',
+      iconBg: 'bg-blue-100',
+    },
+    {
+      key: 'rm' as const,
+      label: 'Relationship Manager',
+      desc: 'Leads, Tasks, Calendar, Targets',
+      icon: Briefcase,
+      color: 'from-violet-500 to-violet-600',
+      bg: 'bg-violet-50 hover:bg-violet-100 border-violet-200',
+      text: 'text-violet-700',
+      iconBg: 'bg-violet-100',
+    },
+    {
+      key: 'admin' as const,
+      label: 'Admin',
+      desc: 'Analytics, Config, Monitoring',
+      icon: Shield,
+      color: 'from-rose-500 to-rose-600',
+      bg: 'bg-rose-50 hover:bg-rose-100 border-rose-200',
+      text: 'text-rose-700',
+      iconBg: 'bg-rose-100',
+    },
+  ];
+
+  return (
+    <div className="mt-6 rounded-xl border-2 border-dashed border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-400">
+          <Zap className="h-4 w-4 text-white" />
+        </span>
+        <div>
+          <p className="text-sm font-bold text-amber-900">Try Demo — No login needed!</p>
+          <p className="text-xs text-amber-700">Explore all 3 dashboards instantly</p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {demoRoles.map(({ key, label, desc, icon: Icon, bg, text, iconBg }) => (
+          <button
+            key={key}
+            id={`demo-${key}-btn`}
+            type="button"
+            disabled={loading !== null}
+            onClick={() => enterDemo(key)}
+            className={`flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left transition-all duration-200 ${bg} disabled:opacity-60`}
+          >
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+              {loading === key ? (
+                <span className={`h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ${text}`} />
+              ) : (
+                <Icon className={`h-4 w-4 ${text}`} />
+              )}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-semibold ${text}`}>{label}</p>
+              <p className="text-xs text-gray-500 truncate">{desc}</p>
+            </div>
+            <span className={`text-xs font-medium ${text} opacity-70`}>→</span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-center text-[11px] text-amber-600">
+        🔒 Demo data only · No real account required
+      </p>
+    </div>
+  );
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -214,6 +346,9 @@ export function LoginPage() {
           </Link>
         </p>
       </form>
+
+      {/* ── Demo Access Panel ──────────────────────────────────────── */}
+      <DemoAccessPanel />
     </AuthCard>
   );
 }
