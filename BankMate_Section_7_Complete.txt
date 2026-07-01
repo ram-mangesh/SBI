@@ -1,0 +1,2194 @@
+BANKMATE AI FRONTEND BLUEPRINT
+
+SECTION 7: AI CONVERSATION & COPILOT EXPERIENCE
+
+════════════════════════════════════════════════════════════════
+📋 SECTION METADATA
+════════════════════════════════════════════════════════════════
+
+Section:       7 - AI Conversation & Copilot Experience
+Version:       1.0.0
+Status:        DRAFT - PENDING APPROVAL
+Dependencies:  Sections 1–6 (All Approved)
+Extends:       Existing BankMate AI Backend Architecture
+Modifications: NONE to existing backend/business logic
+
+════════════════════════════════════════════════════════════════
+⚠️ COMPLIANCE DECLARATION
+════════════════════════════════════════════════════════════════
+
+✅ Backend Architecture:      UNCHANGED
+✅ Database Schema:           UNCHANGED
+✅ API Endpoints:             UNCHANGED (only mapped)
+✅ AI Agents:                 UNCHANGED (only consumed)
+✅ Kafka Events:              UNCHANGED (only consumed)
+✅ Redis Strategy:            UNCHANGED (only referenced)
+✅ Business Logic:            UNCHANGED
+✅ Authentication:            UNCHANGED (Section 4)
+✅ Routing:                   UNCHANGED (Section 2)
+✅ Layout Architecture:       UNCHANGED (Section 3)
+✅ Dashboard Architecture:    UNCHANGED (Section 6)
+
+✅ Documentation Only: Confirmed
+✅ No React Code: Confirmed
+✅ No TypeScript Code: Confirmed
+✅ No CSS Code: Confirmed
+
+════════════════════════════════════════════════════════════════
+🎯 SECTION OVERVIEW
+════════════════════════════════════════════════════════════════
+
+Section 7 defines the complete frontend specification for the
+BankMate AI conversational interface — the AI Copilot that
+accompanies the customer through every step of the journey.
+
+The AI Copilot is not a standalone chatbot. It is a persistent,
+context-aware conversational layer woven into:
+  - Onboarding (Section 5)
+  - Dashboard (Section 6)
+  - Product Discovery (Section 5.9)
+  - Recommendation Viewing (Section 5.10)
+  - Application Journey (Section 5.12)
+  - KYC Journey (Section 5.13)
+
+All AI interactions in this section map exclusively to the
+pre-existing AI agents defined in the approved backend blueprint:
+  - ConversationalAgent
+  - OnboardingAgent
+  - RecommendationEngine
+  - GoalDiscoveryAgent
+  - LifeEventDetector
+  - FinancialAnalysisAgent
+  - QualificationAgent
+  - KYCAgent
+  - NextBestActionAgent
+  - CommunicationAgent
+  - VoiceEngagementAgent
+
+All chat API calls use the existing endpoints:
+  - POST /chat/send-message
+  - GET  /chat/history/{customerId}
+  - GET  /chat/conversation/{id}
+  - POST /chat/select-agent
+  - POST /voice/initiate
+  - GET  /voice/history/{customerId}
+
+════════════════════════════════════════════════════════════════
+7.1 AI COPILOT ARCHITECTURE
+════════════════════════════════════════════════════════════════
+
+7.1.1 COPILOT MODES
+────────────────────────────────────────────────────────────────
+
+The AI Copilot operates in three distinct modes depending on
+the customer's current context:
+
+MODE 1: FLOATING COPILOT (Ambient Mode)
+────────────────────────────────────────
+Presence:   Persistent floating button on all authenticated pages
+Location:   Bottom-right corner (fixed position)
+Z-index:    500 (above content, below modals)
+Trigger:    Customer clicks floating button or is nudged by NBA agent
+Route:      Does NOT navigate away; expands as overlay panel
+Agent:      ConversationalAgent (default)
+API:        POST /chat/send-message
+            GET  /chat/history/{customerId}
+Cache:      Redis key: chat:{customerId}:recent (TTL: 5m)
+Kafka:      Publishes CUSTOMER_ENGAGED on first message
+
+Floating Button Specification:
+  ├── Shape:         Circle, 56px diameter
+  ├── Background:    Brand primary color
+  ├── Icon:          AI sparkle / chat bubble icon
+  ├── Badge:         Unread message count (red dot)
+  ├── Pulse:         Animated ring when NBA agent has a suggestion
+  ├── Tooltip:       "Chat with BankMate AI"
+  └── Accessibility: aria-label="Open AI Copilot", role="button"
+
+Expand Behaviour:
+  ├── Animation:     Scale-up + fade-in (200ms ease)
+  ├── Position:      Right-anchored panel, width 380px
+  ├── Height:        70vh (max 600px, min 400px)
+  ├── Overlay:       Semi-transparent backdrop on mobile
+  └── Close:         X button or click outside (desktop)
+
+MODE 2: FULL-SCREEN CHAT (Dedicated Mode)
+────────────────────────────────────────────
+Presence:   Full page experience at /customer/chat
+Layout:     Chat Layout (Section 3.1.8)
+Trigger:    "Open full chat" link in Floating Copilot OR
+            Direct navigation from sidebar OR
+            Notification deep link
+Agent:      Context-based (defaults to ConversationalAgent)
+Routes:
+  ├── /customer/chat                   → All conversations list
+  ├── /customer/chat/:conversationId   → Specific conversation
+  └── /chat/agent/:agentType           → Agent-specific session
+
+MODE 3: EMBEDDED COPILOT (Contextual Mode)
+────────────────────────────────────────────
+Presence:   Inline AI assistant panel within specific page flows
+Pages:      Onboarding, Application, KYC, Product Details
+Trigger:    Automatic on page load OR user clicks "Get Help"
+Agent:      Context-specific (OnboardingAgent, KYCAgent, etc.)
+Position:   Right panel (desktop) OR bottom sheet (mobile)
+Width:      320px (desktop), full-width (mobile)
+
+7.1.2 AGENT ROUTING ARCHITECTURE
+────────────────────────────────────────────────────────────────
+
+The frontend routes conversations to the correct backend AI agent
+based on the customer's current context. No new agent logic
+is introduced; this is purely frontend routing.
+
+AGENT SELECTION LOGIC
+════════════════════════════════════════════════════════════════
+
+Context / Route                    | Agent Selected              | API Endpoint
+───────────────────────────────────┼─────────────────────────────┼──────────────────────────
+/customer/onboarding               | OnboardingAgent             | POST /chat/select-agent
+/customer/onboarding (step 1-2)    | OnboardingAgent             | {agentType: "onboarding"}
+/customer/onboarding (step 3-5)    | QualificationAgent          | {agentType: "qualification"}
+/customer/life-events              | LifeEventDetector           | {agentType: "life-event"}
+/customer/recommendations          | RecommendationEngine        | {agentType: "recommendation"}
+/customer/products/:id             | RecommendationEngine        | {agentType: "recommendation"}
+/customer/applications/new         | QualificationAgent          | {agentType: "qualification"}
+/customer/applications/:id         | ConversationalAgent         | {agentType: "welcome"}
+/customer/kyc                      | KYCAgent                    | {agentType: "kyc"}
+/customer/goals                    | GoalDiscoveryAgent          | {agentType: "goal"}
+/customer/dashboard                | NextBestActionAgent         | {agentType: "welcome"}
+/chat (default)                    | ConversationalAgent         | {agentType: "welcome"}
+/chat/agent/profile                | OnboardingAgent             | {agentType: "profile"}
+/chat/agent/voice                  | VoiceEngagementAgent        | {agentType: "voice"}
+
+Agent Switch Behaviour:
+  ├── Customer can manually switch agent via "Change Topic" button
+  ├── Agent switch calls POST /chat/select-agent with new agentType
+  ├── Conversation history is preserved on agent switch
+  ├── UI displays "Switching to [Agent Name]…" spinner (300ms)
+  └── New agent sends context-aware opening message on switch
+
+7.1.3 AI COPILOT STATE MACHINE
+────────────────────────────────────────────────────────────────
+
+COPILOT GLOBAL STATES
+════════════════════════════════════════════════════════════════
+
+State              | Description                          | Visual Indicator
+───────────────────┼──────────────────────────────────────┼───────────────────────────
+IDLE               | No active conversation               | Floating button (default)
+CONNECTING         | Establishing WebSocket / API         | Spinner on button
+ACTIVE             | Conversation in progress             | Expanded panel, chat visible
+TYPING             | AI agent generating response         | Animated "..." indicator
+WAITING_USER       | Awaiting customer input              | Cursor blink in input
+SUGGESTION_READY   | NBA agent has proactive suggestion   | Pulsing button + badge
+ERROR              | API/network failure                  | Error banner in chat
+OFFLINE            | No internet connection               | "Offline" indicator
+MINIMIZED          | Panel collapsed, conversation live   | Floating button with badge
+
+State Transitions:
+  IDLE → CONNECTING:      Customer clicks Floating button or enters chat route
+  CONNECTING → ACTIVE:    API confirms session, history loaded
+  ACTIVE → TYPING:        Message sent, awaiting agent response
+  TYPING → WAITING_USER:  Agent response received and rendered
+  WAITING_USER → TYPING:  Customer sends next message
+  ACTIVE → MINIMIZED:     Customer clicks minimize
+  MINIMIZED → ACTIVE:     Customer clicks floating button
+  ACTIVE → IDLE:          Customer closes chat panel
+  ANY → ERROR:            API failure detected
+  ANY → OFFLINE:          Network disconnected
+  ERROR → ACTIVE:         Retry successful
+  OFFLINE → ACTIVE:       Network restored, auto-reconnect
+
+7.1.4 COPILOT STORE ARCHITECTURE
+────────────────────────────────────────────────────────────────
+
+Store File: chat.store.ts (Section 1, existing)
+
+State Shape:
+  copilot:
+    ├── isOpen:                boolean
+    ├── mode:                  'floating' | 'fullscreen' | 'embedded'
+    ├── currentAgent:          AgentType
+    ├── currentConversationId: string | null
+    ├── conversations:         Conversation[]
+    ├── activeMessages:        Message[]
+    ├── isTyping:              boolean
+    ├── isConnecting:          boolean
+    ├── hasUnread:             boolean
+    ├── unreadCount:           number
+    ├── suggestion:            NBAsuggestion | null
+    ├── error:                 ChatError | null
+    └── voiceActive:           boolean
+
+Hooks:
+  ├── useChat.ts         → Message sending, history
+  ├── useCopilot.ts      → Open/close, mode switching
+  └── (existing from Section 1 folder structure)
+
+════════════════════════════════════════════════════════════════
+7.2 CONVERSATIONAL UI LAYOUT
+════════════════════════════════════════════════════════════════
+
+7.2.1 FLOATING COPILOT PANEL LAYOUT
+────────────────────────────────────────────────────────────────
+
+Panel Structure (Expanded):
+┌─────────────────────────────────────────────────┐
+│  COPILOT PANEL HEADER (52px)                    │
+│  ┌──────┐  BankMate AI Copilot    [─] [⤢] [✕]  │
+│  │ 🤖  │  ● Online                             │
+│  └──────┘                                       │
+├─────────────────────────────────────────────────┤
+│  AGENT CONTEXT STRIP (32px)                     │
+│  Currently: Recommendation Assistant  [Switch]  │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  MESSAGE AREA (flex-1, scrollable)              │
+│                                                 │
+│  [Agent messages — left aligned]                │
+│  [Customer messages — right aligned]            │
+│  [Typing indicator — left aligned]              │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│  SUGGESTED PROMPTS STRIP (44px, collapsible)    │
+│  [💡 Show me home loans] [💡 My goals]          │
+├─────────────────────────────────────────────────┤
+│  INPUT AREA (56px min, auto-expand)             │
+│  [📎] [Type a message…              ] [🎤] [➤]  │
+└─────────────────────────────────────────────────┘
+
+Panel Dimensions:
+  ├── Width:         380px (desktop), 100vw (mobile)
+  ├── Height:        70vh, min 400px, max 640px
+  ├── Border-radius: 16px (desktop), 16px top corners only (mobile)
+  ├── Shadow:        0 8px 32px rgba(0,0,0,0.18)
+  ├── Background:    White (light) / Dark-900 (dark mode)
+  └── Position:      Fixed, bottom 80px, right 24px (desktop)
+
+Panel Header:
+  ├── Height:            52px
+  ├── Background:        Brand gradient (left: primary-600, right: primary-500)
+  ├── Agent Avatar:      32px circle, AI icon or brand mark
+  ├── Title:             "BankMate AI Copilot" — 14px semibold, white
+  ├── Status indicator:  8px green dot + "Online" text — 12px, white-80%
+  ├── Controls (right):
+  │     ├── Minimize [─]: Collapses to floating button
+  │     ├── Expand  [⤢]: Opens full-screen chat page
+  │     └── Close   [✕]: Closes panel, returns to IDLE
+  └── Accessibility:     role="dialog", aria-label="BankMate AI Copilot"
+
+Agent Context Strip:
+  ├── Height:        32px
+  ├── Background:    Brand-50 (light tint)
+  ├── Text:          "Currently: [Agent Name]" — 12px, brand-700
+  ├── Switch button: "Switch" link — 12px, right-aligned
+  └── Updates on:    Agent change event
+
+7.2.2 FULL-SCREEN CHAT LAYOUT
+────────────────────────────────────────────────────────────────
+
+Route: /customer/chat
+Layout: Chat Layout (Section 3.1.8)
+
+Desktop Layout (1280px+):
+┌──────────────────────────────────────────────────────────────────┐
+│  HEADER (CustomerLayout — Section 3)                             │
+├──────────────────────────────────────────────────────────────────┤
+│  SIDEBAR  │  CONVERSATIONS LIST     │  ACTIVE CHAT WINDOW        │
+│  (240px)  │  (320px)                │  (flex-1)                  │
+│           │                         │                            │
+│  Nav      │  🔍 Search convos       │  [Chat Window — 7.3]       │
+│  (Sec 3)  │  ─────────────────      │                            │
+│           │  [Conv 1 — 2h ago]      │                            │
+│           │  [Conv 2 — Yesterday]   │                            │
+│           │  [Conv 3 — 3 days ago]  │                            │
+│           │                         │                            │
+│           │  [New Chat +]           │                            │
+└──────────────────────────────────────────────────────────────────┘
+
+Tablet Layout (768px–1279px):
+  ├── Sidebar:           Hidden (burger menu)
+  ├── Conversations:     320px panel (collapsible)
+  └── Chat Window:       Remaining width
+
+Mobile Layout (< 768px):
+  ├── Default view:      Conversations list (full screen)
+  ├── On conversation tap: Full-screen chat window
+  ├── Back button:       Returns to conversations list
+  └── New Chat FAB:      Bottom-right floating button (+)
+
+Conversations List Panel:
+  ├── Header:            "Conversations" title + "New Chat" button
+  ├── Search:            Search bar (filters by keyword)
+  ├── Conversation Item:
+  │     ├── Agent avatar (32px)
+  │     ├── Conversation title (agent name or topic)
+  │     ├── Last message preview (1 line, truncated)
+  │     ├── Timestamp (relative: "2h ago")
+  │     └── Unread badge (if unread messages exist)
+  ├── Empty State:       "No conversations yet. Start a new chat!"
+  └── Sorting:           Most recent first
+
+7.2.3 EMBEDDED COPILOT LAYOUT
+────────────────────────────────────────────────────────────────
+
+Used in: Onboarding, Application, KYC, Product Detail pages
+Position: Right side panel (desktop), bottom sheet (mobile)
+
+Desktop Embedded Layout:
+┌────────────────────────────┬──────────────────────────────────┐
+│  MAIN PAGE CONTENT         │  AI COPILOT PANEL (320px)        │
+│  (flex-1)                  │                                  │
+│                            │  ┌──────────────────────────┐    │
+│  [Page content here]       │  │  PANEL HEADER             │    │
+│                            │  │  AI Assistant  [✕]        │    │
+│                            │  ├──────────────────────────┤    │
+│                            │  │  MESSAGE AREA             │    │
+│                            │  │  (scrollable)             │    │
+│                            │  ├──────────────────────────┤    │
+│                            │  │  INPUT AREA               │    │
+│                            │  └──────────────────────────┘    │
+└────────────────────────────┴──────────────────────────────────┘
+
+Mobile Embedded — Bottom Sheet:
+  ├── Trigger:       "Need help?" button on page
+  ├── Animation:     Slide up from bottom (300ms ease)
+  ├── Height:        50vh (draggable to 90vh)
+  ├── Handle:        Drag handle at top
+  └── Dismiss:       Drag down or tap backdrop
+
+════════════════════════════════════════════════════════════════
+7.3 CHAT WINDOW
+════════════════════════════════════════════════════════════════
+
+7.3.1 CHAT WINDOW STRUCTURE
+────────────────────────────────────────────────────────────────
+
+Component: ChatWindow (features/chat/components/)
+
+┌─────────────────────────────────────────────────┐
+│  CHAT HEADER (52px)                             │
+│  [←]  [Avatar]  [Agent Name]  [Status]  [⋯]    │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  MESSAGE AREA (flex-1, overflow-y: auto)        │
+│                                                 │
+│  ────── Today ──────                           │
+│                                                 │
+│  ┌──────────────────────────────────────────┐  │
+│  │ 🤖  Good morning! I'm your BankMate AI  │  │
+│  │     Copilot. How can I help you today?   │  │
+│  │                          10:30 AM ✓✓    │  │
+│  └──────────────────────────────────────────┘  │
+│                                                 │
+│         ┌──────────────────────────────────┐   │
+│         │  Show me home loan options   │   │
+│         │                   10:31 AM ✓✓ │   │
+│         └──────────────────────────────────┘   │
+│                                                 │
+│  ┌──────────────────────────────────────────┐  │
+│  │ 🤖  [Rich Card — Home Loan Product]      │  │
+│  │     Based on your profile...             │  │
+│  │     [View Details]  [Apply Now]          │  │
+│  └──────────────────────────────────────────┘  │
+│                                                 │
+│  ┌──────────────────────────────────────────┐  │
+│  │ 🤖  ● ● ●  (typing)                      │  │
+│  └──────────────────────────────────────────┘  │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│  SUGGESTED PROMPTS (collapsible)                │
+│  [💡 Tell me more] [💡 Show alternatives]       │
+├─────────────────────────────────────────────────┤
+│  INPUT AREA                                     │
+│  [📎] [Type a message…              ] [🎤] [➤]  │
+└─────────────────────────────────────────────────┘
+
+7.3.2 CHAT HEADER
+────────────────────────────────────────────────────────────────
+
+Floating Panel Mode:
+  ├── Back arrow [←]:   Not shown (use X to close)
+  ├── Agent avatar:     32px circle (AI icon)
+  ├── Agent name:       Current agent display name
+  ├── Status:           "Online" / "Thinking…" / "Offline"
+  └── Options [⋯]:     Dropdown with:
+        ├── Clear conversation
+        ├── View full history
+        ├── Switch agent
+        └── Send feedback
+
+Full-Screen Mode:
+  ├── Back arrow [←]:   Returns to conversation list
+  ├── Agent avatar:     40px circle
+  ├── Agent name + type
+  ├── Status indicator
+  └── Options [⋯]:     Same as above + "Export chat"
+
+Agent Display Names:
+  ├── ConversationalAgent   → "BankMate AI"
+  ├── OnboardingAgent       → "Profile Assistant"
+  ├── RecommendationEngine  → "Recommendation Assistant"
+  ├── QualificationAgent    → "Loan Advisor"
+  ├── KYCAgent              → "KYC Assistant"
+  ├── GoalDiscoveryAgent    → "Goal Planner"
+  ├── LifeEventDetector     → "Life Events Assistant"
+  ├── FinancialAnalysisAgent→ "Financial Advisor"
+  ├── NextBestActionAgent   → "BankMate AI"
+  └── VoiceEngagementAgent  → "Voice Assistant"
+
+7.3.3 MESSAGE TYPES
+────────────────────────────────────────────────────────────────
+
+TYPE 1: TEXT MESSAGE (Customer)
+  ├── Alignment:     Right
+  ├── Background:    Brand primary (e.g. Blue-600)
+  ├── Text color:    White
+  ├── Border-radius: 16px 16px 4px 16px
+  ├── Max-width:     75%
+  ├── Padding:       10px 14px
+  ├── Timestamp:     Below, right-aligned, 11px, white-70%
+  └── Status tick:   ✓ (sent) / ✓✓ (delivered) / ✓✓ blue (read)
+
+TYPE 2: TEXT MESSAGE (Agent)
+  ├── Alignment:     Left
+  ├── Background:    Gray-100 (light) / Gray-800 (dark)
+  ├── Text color:    Gray-900 / White
+  ├── Border-radius: 16px 16px 16px 4px
+  ├── Max-width:     75%
+  ├── Padding:       10px 14px
+  ├── Avatar:        32px agent icon (left of bubble)
+  └── Timestamp:     Below, left-aligned, 11px, Gray-500
+  Markdown Support:
+    ├── **bold** → Bold text
+    ├── _italic_ → Italic text
+    ├── [link text](url) → Clickable links (open in new tab)
+    └── Bullet lists → Rendered as styled list
+
+TYPE 3: RICH CARD (Agent — Product)
+  ├── Renders:       Inline product summary card
+  ├── Width:         Full message width (max 320px)
+  ├── Contents:
+  │     ├── Product icon/image (48px)
+  │     ├── Product name (14px semibold)
+  │     ├── Key metric (e.g. "₹12,500/month EMI")
+  │     ├── Match score badge (e.g. "92% Match")
+  │     └── Action buttons:
+  │           ├── [View Details] → /customer/products/:id
+  │           └── [Apply Now]   → /customer/products/:id/apply
+  └── API Source:   GET /recommendations/{customerId}
+
+TYPE 4: RICH CARD (Agent — Life Event)
+  ├── Contents:
+  │     ├── Life event icon
+  │     ├── Event name (e.g. "Home Purchase Detected")
+  │     ├── Stage indicator
+  │     ├── Confidence score
+  │     └── [View Life Event] → /customer/life-events/:eventId
+  └── Trigger:      LifeEventDetector agent response
+
+TYPE 5: QUICK REPLY BUTTONS (Agent)
+  ├── Renders:       Row of tappable chips below agent message
+  ├── Max buttons:   4 per row
+  ├── Behaviour:     On click → sends that text as user message
+  ├── Disappear:     After any button is clicked
+  └── Example:
+        [Home Loan] [Personal Loan] [Credit Card] [Tell me more]
+
+TYPE 6: FORM CARD (Agent — Inline Input)
+  ├── Renders:       Mini form inside chat bubble
+  ├── Used for:      Quick data collection without leaving chat
+  ├── Fields:        Max 3 fields per form card
+  ├── Submit:        Sends form values to POST /chat/send-message
+  └── Example:
+        "What's your monthly income?"
+        [₹ ___________  ] [Submit]
+
+TYPE 7: GOAL SUMMARY CARD (Agent)
+  ├── Contents:
+  │     ├── Goal icon
+  │     ├── Goal name + target amount
+  │     ├── Progress bar
+  │     └── [View Goal] → /customer/goals/:goalId
+  └── Trigger:      GoalDiscoveryAgent response
+
+TYPE 8: APPLICATION STATUS CARD (Agent)
+  ├── Contents:
+  │     ├── Application ID
+  │     ├── Product name
+  │     ├── Status badge (color-coded)
+  │     ├── Status message
+  │     └── [View Application] → /customer/applications/:appId
+  └── Trigger:      ConversationalAgent status query response
+
+TYPE 9: KYC STEP CARD (Agent)
+  ├── Contents:
+  │     ├── KYC step icon
+  │     ├── Step name
+  │     ├── Instruction text
+  │     └── [Complete Step] → /customer/kyc
+  └── Trigger:      KYCAgent response
+
+TYPE 10: DATE SEPARATOR
+  ├── Renders:      "Today" / "Yesterday" / "Jan 20, 2024"
+  ├── Alignment:    Center
+  ├── Style:        12px Gray-500 with horizontal line
+  └── Appears:      Between messages from different days
+
+7.3.4 TYPING INDICATOR
+────────────────────────────────────────────────────────────────
+
+Visual:
+  ┌──────────────────────────────────────────┐
+  │ 🤖  ● ● ●  (animated bounce, 600ms loop) │
+  └──────────────────────────────────────────┘
+
+Behaviour:
+  ├── Appears:    When POST /chat/send-message is in-flight
+  ├── Duration:   Until agent response is received
+  ├── Max wait:   30 seconds (then show timeout error)
+  └── Removal:    Replaced by agent message on response
+
+7.3.5 INPUT AREA
+────────────────────────────────────────────────────────────────
+
+Component:     ChatInput
+
+Structure:
+  ┌──────────────────────────────────────────────────────────┐
+  │  [📎 Attach]  [Type a message here…          ] [🎤] [➤]  │
+  └──────────────────────────────────────────────────────────┘
+
+Text Input:
+  ├── Type:          Textarea (auto-resize)
+  ├── Min height:    44px (single line)
+  ├── Max height:    120px (5 lines, then scrolls)
+  ├── Placeholder:   "Type a message…"
+  ├── Enter key:     Send message
+  ├── Shift+Enter:   New line
+  ├── Disabled:      When AI is TYPING or OFFLINE
+  └── Character limit: 2000
+
+Attach Button [📎]:
+  ├── Opens:         File picker
+  ├── Allowed types: image/jpeg, image/png, application/pdf
+  ├── Max size:      10MB
+  ├── Behaviour:     Sends file via POST /chat/send-message
+  │                  (multipart, maps to existing API)
+  └── Preview:       Thumbnail shown above input before send
+
+Voice Button [🎤]:
+  ├── Triggers:      Section 7.12 Voice Conversation Support
+  ├── State:         Inactive → Recording → Processing
+  ├── Maps to:       POST /voice/initiate
+  └── Fallback:      Hidden if browser lacks mic permission
+
+Send Button [➤]:
+  ├── Enabled:       When input has text OR file attached
+  ├── Disabled:      Empty input or AI is typing
+  └── Keyboard:      Also triggered by Enter key
+
+════════════════════════════════════════════════════════════════
+7.4 AI WELCOME EXPERIENCE
+════════════════════════════════════════════════════════════════
+
+7.4.1 FIRST-TIME WELCOME
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer opens Copilot for the first time (ever)
+Agent:         ConversationalAgent → OnboardingAgent
+API:           POST /chat/send-message
+               Body: { agentType: "welcome", sessionType: "first_time" }
+Kafka:         Publishes CUSTOMER_ENGAGED
+
+Welcome Flow:
+  Step 1: Greeting message
+    ────────────────────────────────────────────────────────
+    🤖  "Hello Priya! 👋 I'm BankMate, your personal
+         AI banking assistant.
+         I'm here to help you discover the best financial
+         products for your life goals and guide you every
+         step of the way.
+         What brings you here today?"
+    ────────────────────────────────────────────────────────
+    Quick Replies:
+      [🏠 Home Loan]  [💳 Credit Card]
+      [📈 Investments]  [Tell me about you]
+
+  Step 2: On "Tell me about you" selection
+    ────────────────────────────────────────────────────────
+    🤖  "Great! I already know a little about you from
+         your profile. You're a salaried professional
+         in [City].
+         To give you the best recommendations, I'd love
+         to learn about your current financial goals.
+         What's most important to you right now?"
+    ────────────────────────────────────────────────────────
+    Quick Replies:
+      [Buy a home]  [Plan a wedding]
+      [Children's education]  [Retirement planning]
+
+  Step 3: On goal selected → Transition to 7.9 (Goal Planning)
+
+7.4.2 RETURNING CUSTOMER WELCOME
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer opens Copilot on subsequent visits
+Agent:         NextBestActionAgent
+API:           POST /chat/send-message
+               Body: { agentType: "welcome", sessionType: "returning" }
+
+Contextual Greetings (Based on NBA agent response):
+  ├── If pending application:
+  │   🤖 "Welcome back, Priya! Your Home Loan application
+  │       is still under review. Want to check the status?"
+  │   [Check Status] [Not now]
+  │
+  ├── If life event detected:
+  │   🤖 "Hi Priya! I noticed you may be planning
+  │       something big. Are you thinking about buying a home?"
+  │   [Yes, tell me more] [No, something else]
+  │
+  ├── If goal milestone reached:
+  │   🤖 "Great news! You're 70% of the way to your
+  │       Home Down Payment goal! Want to explore
+  │       home loan options now?"
+  │   [Show me loans] [Later]
+  │
+  └── Default (no specific context):
+      🤖 "Welcome back, Priya! How can I help you today?"
+      Quick Replies: [My Products] [Goals] [Recommendations]
+
+7.4.3 WELCOME ANIMATION
+────────────────────────────────────────────────────────────────
+
+On first open:
+  ├── Panel slides up + fades in (200ms)
+  ├── Agent avatar: Scale from 0 → 1 with bounce (300ms)
+  ├── Welcome message: Types in character by character (30ms/char)
+  │   (Typewriter effect for first message only)
+  └── Quick replies: Fade in after message completes (+200ms)
+
+On subsequent opens:
+  ├── Panel slides up + fades in (200ms)
+  └── Last conversation state restored immediately (no animation)
+
+════════════════════════════════════════════════════════════════
+7.5 AI GUIDED PRODUCT DISCOVERY
+════════════════════════════════════════════════════════════════
+
+7.5.1 PRODUCT DISCOVERY CONVERSATION FLOW
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer selects a product category from Welcome
+               OR navigates to /customer/products
+               OR selects "Show me products" in chat
+Agent:         RecommendationEngine
+API:           POST /chat/send-message
+               { agentType: "recommendation", intent: "product_discovery" }
+               GET /recommendations/{customerId} (for product cards)
+Cache:         Redis key: recommendations:{customerId} (TTL: 10m)
+Kafka:         Publishes PRODUCT_VIEWED on card interaction
+
+PRODUCT DISCOVERY STAGES
+════════════════════════════════════════════════════════════════
+
+Stage 1: Need Identification
+  Agent message:
+    "What are you looking for today?"
+  Quick Replies:
+    [Home Loan] [Personal Loan] [Credit Card]
+    [Fixed Deposit] [Insurance] [Other]
+
+Stage 2: Qualification Questions (dynamic, from RecommendationEngine)
+  For Home Loan:
+    "What's your approximate property budget?"
+    [Under ₹30L] [₹30L–₹50L] [₹50L–₹1Cr] [Above ₹1Cr]
+
+  For Personal Loan:
+    "What do you need the loan for?"
+    [Wedding] [Medical] [Travel] [Education] [Other]
+
+  For Credit Card:
+    "What matters most to you in a card?"
+    [Cashback] [Travel rewards] [Fuel benefits] [Shopping]
+
+Stage 3: Profile Confirmation
+  Agent message:
+    "Based on your income of ₹[X]/month and credit profile,
+     here's what I found for you:"
+  → Renders 2–3 Product Rich Cards (TYPE 3)
+
+Stage 4: Comparison Offer
+  After showing products:
+    "Want to compare these side by side?"
+    [Yes, compare] [Show more options] [Apply for [Product Name]]
+  → "Compare" → /customer/recommendations/compare
+  → "Apply" → /customer/products/:id/apply
+
+7.5.2 PRODUCT CARD IN CHAT
+────────────────────────────────────────────────────────────────
+
+API Source: GET /recommendations/{customerId}
+Rendered as: TYPE 3 Rich Card (Section 7.3.3)
+
+Additional detail for Product Discovery context:
+  ├── Show top 3 recommendations (ranked by match score)
+  ├── Each card: Product name, key rate, EMI estimate, match %
+  ├── Primary CTA: [Apply Now]
+  ├── Secondary CTA: [View Details]
+  └── Below cards: "Show me more options" text link
+
+7.5.3 ELIGIBILITY CHECK WITHIN CHAT
+────────────────────────────────────────────────────────────────
+
+If customer asks "Am I eligible?":
+  Agent:  QualificationAgent
+  API:    POST /chat/send-message
+          { agentType: "qualification", intent: "eligibility_check" }
+
+  Response:
+    ────────────────────────────────────────────────────────
+    🤖  "Based on your profile, here's your eligibility
+         for Home Loan:
+
+         ✅ Income:        ₹85,000/month — Eligible
+         ✅ Credit Score:  780 — Excellent
+         ✅ Employment:    3 years — Eligible
+         ⚠️  KYC Status:  Pending — Complete to apply
+
+         You can apply for up to ₹45 Lakhs.
+         Want to start your application?"
+    ────────────────────────────────────────────────────────
+    [Start Application] [Complete KYC First] [Tell me more]
+
+════════════════════════════════════════════════════════════════
+7.6 AI FINANCIAL ADVISOR
+════════════════════════════════════════════════════════════════
+
+7.6.1 FINANCIAL ADVISOR CONVERSATION
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer selects "Financial Advice" in chat OR
+               Dashboard widget "Talk to AI Advisor" CTA OR
+               /chat/agent/profile
+Agent:         FinancialAnalysisAgent
+API:           POST /chat/send-message
+               { agentType: "profile" (maps to FinancialAnalysisAgent) }
+               GET /customers/{id}/financial (for financial data)
+Cache:         Redis key: customer:{id}:financial (TTL: 15m)
+
+7.6.2 FINANCIAL HEALTH REVIEW FLOW
+────────────────────────────────────────────────────────────────
+
+Stage 1: Opening
+  🤖  "I've reviewed your financial profile, Priya.
+       Here's a quick snapshot:"
+
+  Financial Health Card (Rich Message):
+  ┌──────────────────────────────────────────────────────┐
+  │  📊 Your Financial Health Score                      │
+  │  ────────────────────────────────────────            │
+  │  Score: 72 / 100   ● Good                           │
+  │  ──────────────────────────────────────              │
+  │  ✅ Savings Rate:   18% of income                    │
+  │  ✅ EMI-to-Income:  28% (Healthy)                    │
+  │  ⚠️  Emergency Fund: 2 months (Target: 6)           │
+  │  ❌ Investment:     No SIPs active                   │
+  └──────────────────────────────────────────────────────┘
+
+Stage 2: Insight messages (sequential)
+  🤖  "Your biggest opportunity is building an emergency
+       fund. You're currently 4 months short of the
+       recommended 6-month reserve."
+  Quick Replies: [How do I fix this?] [Tell me more] [Skip]
+
+Stage 3: Recommendation based on gap
+  🤖  "I'd suggest a high-yield Savings Account or
+       a short-term Fixed Deposit to build this fund
+       quickly. Want me to show you options?"
+  [Show Savings Products] [Show FD Options] [Later]
+
+Stage 4: Investment gap (if applicable)
+  🤖  "You currently have no active SIPs or investments.
+       Even ₹2,000/month in a mutual fund can build
+       significant wealth over time.
+       Want to explore investment options?"
+  [Show Investment Products] [Learn more] [Skip for now]
+
+7.6.3 EMI IMPACT CALCULATION IN CHAT
+────────────────────────────────────────────────────────────────
+
+Trigger:       "What will my EMI be?" or product recommendation card
+Agent:         FinancialAnalysisAgent / RecommendationEngine
+Calculation:   Client-side (EMI formula, no API needed)
+               Loan amount × [r(1+r)^n] / [(1+r)^n - 1]
+
+Inline Calculator Message:
+  ────────────────────────────────────────────────────────
+  🤖  "Let me calculate that for you:"
+
+  ┌──────────────────────────────────────────────────────┐
+  │  💰 EMI Calculator                                   │
+  │  ─────────────────────────────────────────           │
+  │  Loan Amount:   ₹ [___________]                      │
+  │  Tenure:        [12] [24] [36] [48] [60] months      │
+  │  Interest Rate: 10.5% p.a. (from product)            │
+  │  ─────────────────────────────────────────           │
+  │  Estimated EMI: ₹ 21,247 / month                     │
+  │  Total Interest: ₹ 27,440                            │
+  └──────────────────────────────────────────────────────┘
+  [Apply for this loan] [Change amount]
+  ────────────────────────────────────────────────────────
+
+7.6.4 DEBT CONSOLIDATION ADVISOR
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer asks "I have too many EMIs"
+Agent:         FinancialAnalysisAgent
+API:           GET /transactions/{customerId} (identifies EMI patterns)
+Cache:         Redis key: transactions:{customerId}:emis (TTL: 5m)
+
+Response flow:
+  Step 1: Empathize + summarize
+    🤖 "I can see you have [X] active EMIs totalling
+        ₹[Y]/month. That's [Z]% of your income.
+        Would you like to explore consolidation options?"
+
+  Step 2: Show Personal Loan as consolidation tool
+    → TYPE 3 Rich Card: Personal Loan for debt consolidation
+    [Learn how this works] [Calculate savings] [Apply]
+
+════════════════════════════════════════════════════════════════
+7.7 AI LIFE EVENT CONVERSATION
+════════════════════════════════════════════════════════════════
+
+7.7.1 LIFE EVENT DETECTION NOTIFICATION IN CHAT
+────────────────────────────────────────────────────────────────
+
+Trigger:       Kafka event LIFE_EVENT_DETECTED consumed by frontend
+               (via SSE or WebSocket, mapped to existing Kafka pipeline)
+Agent:         LifeEventDetector
+API:           POST /chat/send-message
+               { agentType: "life-event", lifeEventId: "{id}" }
+               GET /life-events/{customerId}
+Cache:         Redis key: life-events:{customerId} (TTL: 10m)
+
+Proactive Life Event Message (appears in Floating Copilot):
+  ────────────────────────────────────────────────────────
+  🤖  "Hi Priya! 🏠 I noticed something that might be
+       relevant to you. Based on your recent activity,
+       it looks like you might be planning to buy a home.
+       Is that right?"
+  ────────────────────────────────────────────────────────
+  [Yes, I'm exploring!] [Not quite] [Tell me more]
+
+7.7.2 LIFE EVENT CONFIRMATION FLOW
+────────────────────────────────────────────────────────────────
+
+On "Yes" confirmation:
+  Step 1: Stage detection
+    🤖  "That's exciting! Are you in the early stages
+         of exploring, or are you actively looking for
+         properties?"
+    [Just exploring] [Actively looking] [Already found a property]
+
+  Step 2: Timeline collection
+    🤖  "When are you planning to buy?"
+    [Within 3 months] [3–6 months] [6–12 months] [1+ years]
+
+  Step 3: Budget collection (Form Card)
+    🤖  "What's your approximate budget?"
+    [₹ ___________ ] [Submit]
+
+  Step 4: Life event confirmed → Product recommendations
+    → Transition to Section 7.8 (AI Recommendation Explanation)
+    API: GET /recommendations/{customerId}
+    Context: life_event type passed in recommendation request
+
+  Step 5: Life event saved
+    API: PUT /life-events/{eventId}/confirm
+    Kafka: Publishes LIFE_EVENT_CONFIRMED
+    Redirect suggestion: "Want to see your full Life Events
+    timeline?" [View Timeline] → /customer/life-events
+
+7.7.3 LIFE EVENT STAGE TRANSITION IN CHAT
+────────────────────────────────────────────────────────────────
+
+When a life event stage advances (e.g., "Exploring" → "Ready to Buy"):
+  Agent: LifeEventDetector
+  Kafka: LIFE_EVENT_STAGE_CHANGED consumed
+  Chat notification:
+    🤖  "Your Home Purchase journey has moved to the
+         next stage: Ready to Buy 🎉
+         Your recommendations have been updated.
+         Want to see what's new?"
+    [Show updated recommendations] [Dismiss]
+
+════════════════════════════════════════════════════════════════
+7.8 AI RECOMMENDATION EXPLANATION
+════════════════════════════════════════════════════════════════
+
+7.8.1 WHY THIS RECOMMENDATION
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer taps "Why was I recommended this?" OR
+               Customer asks "Why this product?" in chat
+Agent:         RecommendationEngine
+API:           POST /chat/send-message
+               { agentType: "recommendation",
+                 intent: "explain",
+                 recommendationId: "{id}" }
+               GET /recommendations/{recId}
+
+Response format:
+  ────────────────────────────────────────────────────────
+  🤖  "Here's why I recommended the BankMate Home Loan
+       for you:
+
+       ✅ Your income (₹85K/month) qualifies you for
+          loans up to ₹45 Lakhs.
+       ✅ Your credit score (780) gets you the
+          best interest rate of 8.5% p.a.
+       ✅ Your employment history (5 years) meets
+          the stability requirement.
+       🏠  You mentioned buying a home in 6–12 months,
+          which matches this product's offer window.
+
+       This product has a 94% match score for your profile."
+  ────────────────────────────────────────────────────────
+  [Apply Now] [Show alternatives] [Compare products]
+
+7.8.2 MATCH SCORE EXPLANATION
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer taps match score badge on any recommendation card
+Agent:         RecommendationEngine
+API:           GET /recommendations/{recId} (matchDetails field)
+
+Match Score Breakdown Card (Rich Message):
+  ┌──────────────────────────────────────────────────────┐
+  │  🎯 Match Score Breakdown: 94%                       │
+  │  ────────────────────────────────────────            │
+  │  Income Eligibility:   ████████████ 100%             │
+  │  Credit Score:         ████████████  95%             │
+  │  Loan-to-Value Ratio:  ██████████    85%             │
+  │  Life Event Alignment: ████████████ 100%             │
+  │  Product Preference:   ████████      80%             │
+  └──────────────────────────────────────────────────────┘
+
+7.8.3 ALTERNATIVE RECOMMENDATION FLOW
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer says "Show me alternatives" in chat
+Agent:         RecommendationEngine
+API:           GET /recommendations/{customerId}?exclude={currentRecId}
+
+  🤖  "Here are 2 more options that might work for you:"
+  → Renders 2 additional TYPE 3 Product Rich Cards
+  Below: "Compare all 3" → /customer/recommendations/compare
+
+════════════════════════════════════════════════════════════════
+7.9 AI GOAL PLANNING
+════════════════════════════════════════════════════════════════
+
+7.9.1 GOAL DISCOVERY CONVERSATION
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer clicks "Set a Goal" in Dashboard OR
+               Navigates to /customer/goals/new OR
+               Selects goal topic in chat
+Agent:         GoalDiscoveryAgent
+API:           POST /chat/send-message
+               { agentType: "goal", intent: "discover" }
+               POST /goals (on goal creation)
+Cache:         Redis key: goals:{customerId} (TTL: 10m)
+Kafka:         Publishes GOAL_CREATED on completion
+
+GOAL CREATION FLOW
+════════════════════════════════════════════════════════════════
+
+Step 1: Goal Type Selection
+  🤖  "What financial goal would you like to set?"
+  Quick Replies:
+    [🏠 Buy a Home] [💒 Wedding] [🎓 Education]
+    [✈️ Travel] [🏥 Emergency Fund] [📈 Investment]
+    [🚗 Vehicle] [Custom Goal]
+
+Step 2: Goal Name (for Custom Goal)
+  Form Card:
+    "What would you like to call this goal?"
+    [Goal name ___________] [Continue]
+
+Step 3: Target Amount
+  🤖  "What's your target amount for [Goal Name]?"
+  Form Card:
+    [₹ ___________] [Continue]
+  Suggestion below: "Based on home prices in your area,
+  ₹40–60 Lakhs is typical. Need help estimating?"
+
+Step 4: Target Date
+  🤖  "When would you like to achieve this?"
+  [6 months] [1 year] [2 years] [3 years] [Custom date]
+
+Step 5: Monthly Savings Calculation
+  🤖  "To reach ₹45 Lakhs in 2 years, you'd need to
+       save approximately ₹1,87,500 per month.
+       You currently save about ₹15,000/month.
+       Would you like me to adjust the timeline or amount?"
+  [Adjust Timeline] [Adjust Amount] [This works for me!]
+
+Step 6: Product Link (if relevant)
+  🤖  "A good way to accelerate this goal is through
+       a Home Loan + Savings plan combination.
+       Want to see how much loan would bridge the gap?"
+  [Show me] [I'll manage on my own] [Save goal as-is]
+
+Step 7: Goal Saved
+  API: POST /goals
+  Body: { customerId, goalType, goalName, targetAmount,
+          targetDate, monthlyContribution }
+  Kafka: Publishes GOAL_CREATED
+  🤖  "🎯 Your goal has been saved!
+       I'll help you track your progress and recommend
+       products to help you get there faster."
+  [View Goal] → /customer/goals/:goalId
+  [Set another goal] [Done]
+
+7.9.2 GOAL PROGRESS CHECK IN CHAT
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer asks "How are my goals doing?"
+Agent:         GoalDiscoveryAgent
+API:           GET /goals/{customerId}
+Cache:         Redis key: goals:{customerId} (TTL: 10m)
+
+  🤖  "Here's your goal progress:"
+  → Renders TYPE 7 Goal Summary Cards for each goal
+  Below: "Want to update any of these goals?" [Edit Goals]
+
+════════════════════════════════════════════════════════════════
+7.10 AI APPLICATION ASSISTANCE
+════════════════════════════════════════════════════════════════
+
+7.10.1 PRE-APPLICATION GUIDANCE
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer clicks [Apply Now] in chat recommendation card
+Agent:         QualificationAgent
+API:           POST /chat/send-message
+               { agentType: "qualification", intent: "pre_application" }
+               GET /products/{productId}
+
+Pre-Application Checklist (Chat Message):
+  ────────────────────────────────────────────────────────
+  🤖  "Before you apply for the Home Loan, let's make
+       sure you have everything ready:
+
+       ✅ PAN Card
+       ✅ Aadhaar Card
+       ✅ Last 3 months salary slips
+       ✅ Last 6 months bank statements
+       ⚠️  Form 16 (required for salaried applicants)
+
+       Do you have these documents ready?"
+  ────────────────────────────────────────────────────────
+  [Yes, I'm ready — Start Application]
+  [I need more time]
+  [What if I'm missing something?]
+
+On "Yes, I'm ready":
+  → Navigate to /customer/products/:productId/apply
+  → Embedded Copilot follows (MODE 3) with QualificationAgent
+
+7.10.2 IN-APPLICATION ASSISTANCE
+────────────────────────────────────────────────────────────────
+
+Trigger:       Embedded Copilot activates on Application form pages
+Agent:         QualificationAgent
+Mode:          Embedded (MODE 3, right panel)
+API:           POST /chat/send-message (contextual help)
+
+Contextual Help per Application Step:
+  ├── Personal Info step:
+  │   🤖 "Make sure your name matches your PAN Card exactly."
+  │
+  ├── Employment step:
+  │   🤖 "Enter your net monthly take-home salary,
+  │       not the gross CTC."
+  │
+  ├── Document Upload step:
+  │   🤖 "Your bank statements should show the account
+  │       where your salary is credited."
+  │       [How to download bank statement?] (expands FAQ)
+  │
+  └── Review & Submit step:
+      🤖 "You're all set! Once submitted, you'll get a
+          decision within 24 hours. I'll notify you
+          immediately when there's an update."
+
+7.10.3 POST-APPLICATION STATUS UPDATES
+────────────────────────────────────────────────────────────────
+
+Trigger:       Kafka event APPLICATION_STATUS_CHANGED consumed
+Agent:         ConversationalAgent (NBA context)
+Kafka:         APPLICATION_STATUS_CHANGED → frontend notification
+API:           GET /applications/{appId}/status
+
+Proactive chat message on status change:
+  Approved:
+    🤖 "🎉 Great news! Your Home Loan has been approved!
+        Amount: ₹40 Lakhs | Rate: 8.5% p.a.
+        Review and accept your offer to proceed."
+    [View Offer] → /customer/applications/:appId/accept
+
+  More Info Needed:
+    🤖 "Your application needs one more document:
+        Income Tax Return (ITR) for the last 2 years.
+        Upload it to continue."
+    [Upload Document] → /customer/kyc/upload
+
+  Rejected:
+    🤖 "Unfortunately, your application wasn't approved
+        this time. Here are some steps to improve
+        your eligibility:"
+    [See personalized tips] [Explore alternatives]
+
+════════════════════════════════════════════════════════════════
+7.11 AI KYC ASSISTANCE
+════════════════════════════════════════════════════════════════
+
+7.11.1 KYC INITIATION
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer navigates to /customer/kyc OR
+               KYC Guard blocks a route (Section 2.2.3) OR
+               Chat reminder after application start
+Agent:         KYCAgent
+API:           POST /chat/send-message
+               { agentType: "kyc", intent: "initiate" }
+               GET /kyc/{customerId}/status
+Kafka:         KYC_INITIATED on first step
+
+Embedded Mode activation:
+  → KYC page loads with embedded Copilot (MODE 3, right panel)
+  → KYCAgent sends opening message
+
+Opening Message:
+  🤖  "Let's complete your KYC quickly! It only takes
+       5–7 minutes and you'll be ready to apply for
+       any product.
+       Here's what we need:"
+
+  KYC Step Card (TYPE 9):
+  ┌──────────────────────────────────────────────────────┐
+  │  📋 KYC Steps                                        │
+  │  ──────────────────────────────────────────          │
+  │  ✅ Step 1: Aadhaar Verification      Completed      │
+  │  ⏳ Step 2: PAN Verification          In Progress    │
+  │  ○  Step 3: Selfie Verification       Pending        │
+  │  ○  Step 4: Address Verification      Pending        │
+  └──────────────────────────────────────────────────────┘
+  [Continue where I left off]
+
+7.11.2 KYC STEP-BY-STEP GUIDANCE
+────────────────────────────────────────────────────────────────
+
+Agent: KYCAgent
+API:   POST /kyc/{customerId}/upload-document (on document submit)
+       GET  /kyc/{customerId}/status
+
+Aadhaar Step:
+  🤖  "Please enter your 12-digit Aadhaar number.
+       We'll send an OTP to your registered mobile
+       to verify it."
+  After OTP:
+  🤖  "✅ Aadhaar verified successfully!"
+
+PAN Step:
+  🤖  "Now let's verify your PAN Card.
+       You can either:
+       1. Enter your PAN number manually, or
+       2. Upload a photo of your PAN Card"
+  [Enter manually] [Upload photo]
+
+Selfie Step:
+  🤖  "Almost there! We need a quick selfie to
+       verify your identity.
+       Tips for a good selfie:
+       • Good lighting (face the light source)
+       • No glasses or hat
+       • Look directly at the camera"
+  [Open Camera] → DocumentScanner component
+
+Address Step (if required):
+  🤖  "Finally, we need proof of your current address.
+       Acceptable documents:
+       • Recent utility bill (< 3 months)
+       • Bank statement with address
+       • Aadhaar (if address is current)"
+  [Upload Document]
+
+7.11.3 KYC COMPLETION
+────────────────────────────────────────────────────────────────
+
+API:   GET /kyc/{customerId}/status → VERIFIED
+Kafka: KYC_COMPLETED
+
+  🤖  "🎉 KYC Complete! You're now fully verified
+       and can apply for any financial product.
+       Ready to explore your personalized recommendations?"
+  [Show my recommendations] → /customer/recommendations
+
+7.11.4 KYC REJECTION ASSISTANCE
+────────────────────────────────────────────────────────────────
+
+API:   GET /kyc/{customerId}/status → REJECTED
+Kafka: KYC_REJECTED
+
+  🤖  "Your [Document Type] verification wasn't
+       successful. Common reasons:
+       • Image was blurry or partially cropped
+       • Document has expired
+       • Details don't match your profile
+
+       Please re-upload a clearer image."
+  [Re-upload document] [Contact Support]
+
+════════════════════════════════════════════════════════════════
+7.12 AI VOICE CONVERSATION SUPPORT
+════════════════════════════════════════════════════════════════
+
+7.12.1 VOICE INPUT IN CHAT
+────────────────────────────────────────────────────────────────
+
+Trigger:       Customer taps 🎤 in Chat Input Area
+Agent:         ConversationalAgent (voice input → text processing)
+API:           Browser Web Speech API (speech-to-text, client-side)
+               POST /chat/send-message (transcribed text sent as message)
+Fallback:      If browser lacks mic support → button hidden
+
+Voice Recording States:
+  ├── IDLE:         Microphone icon [🎤]
+  ├── LISTENING:    Animated red dot [🔴] + waveform animation
+  │                 "Listening…" label
+  ├── PROCESSING:   Spinner [⏳] + "Processing…" label
+  ├── TRANSCRIBED:  Text appears in input field → customer can edit
+  └── ERROR:        "Couldn't hear you. Try again." + retry button
+
+Voice Input Flow:
+  1. Customer taps [🎤]
+  2. Browser requests mic permission (once)
+  3. If granted: Recording begins, waveform shows
+  4. Customer speaks their query
+  5. Tap [🎤] again OR auto-stop after 3 seconds of silence
+  6. Transcribed text appears in input field
+  7. Customer can edit or send directly
+
+Accessibility:
+  ├── aria-label: "Voice input — tap to start speaking"
+  ├── Screen reader: announces "Recording started" / "Recording stopped"
+  └── Keyboard: Enter to start/stop recording (when focused)
+
+7.12.2 VOICE CAMPAIGN INTEGRATION
+────────────────────────────────────────────────────────────────
+
+Trigger:       Kafka event VOICE_CAMPAIGN_TRIGGERED
+               OR customer navigates to /customer/voice
+Agent:         VoiceEngagementAgent
+API:           POST /voice/initiate
+               GET  /voice/campaigns
+               GET  /voice/history/{customerId}
+               PUT  /voice/preferences
+               POST /chat/select-agent { agentType: "voice" }
+
+Voice Campaign Notification in Chat:
+  🤖  "📞 You have a scheduled call from your BankMate
+       advisor about your Home Loan application.
+       Scheduled for: Today at 3:00 PM
+
+       Want to reschedule or take the call now?"
+  [Call now] [Reschedule] [Skip this call]
+
+On "Call now":
+  → Initiates POST /voice/initiate
+  → Shows in-call UI overlay (see 7.12.3)
+
+7.12.3 IN-CALL UI OVERLAY
+────────────────────────────────────────────────────────────────
+
+Mode:     Full-screen overlay (z-index: 900)
+Trigger:  Voice call connected via POST /voice/initiate
+
+Structure:
+  ┌─────────────────────────────────────────────────────────┐
+  │                                                         │
+  │       🤖  BankMate AI Voice Advisor                    │
+  │                                                         │
+  │          ● ● ●  Speaking…                              │
+  │       ──────────────────────────────                   │
+  │       [Live transcript appears here]                    │
+  │       "Your home loan application is under             │
+  │        review. The decision will be ready              │
+  │        within 24 hours…"                               │
+  │                                                         │
+  │         ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+  │         │  🔇 Mute │  │ 📋 Notes │  │ 🔴 End   │      │
+  │         └──────────┘  └──────────┘  └──────────┘      │
+  │                                                         │
+  │        Call Duration: 00:45                             │
+  └─────────────────────────────────────────────────────────┘
+
+Live Transcript:
+  ├── Agent speech transcribed in real-time (30ms delay)
+  ├── Customer speech shown in blue (right-aligned)
+  └── Post-call: Full transcript saved to conversation history
+
+Post-Call Summary in Chat:
+  🤖  "Your call has ended. Here's a summary:
+       • Home Loan status: Under Review (24hr)
+       • Action required: Upload ITR (link provided)
+       • Next call: Not scheduled
+
+       [View full transcript] [Upload ITR now]"
+
+════════════════════════════════════════════════════════════════
+7.13 CONVERSATION HISTORY
+════════════════════════════════════════════════════════════════
+
+7.13.1 CONVERSATION LIST
+────────────────────────────────────────────────────────────────
+
+Route:    /customer/chat
+API:      GET /chat/history/{customerId}
+Cache:    Redis key: chat:{customerId}:history (TTL: 5m)
+Store:    chat.store.ts → conversations[]
+
+Conversation List Item:
+  ┌──────────────────────────────────────────────────────┐
+  │  [🤖] Recommendation Assistant        2h ago         │
+  │       "Here are the best home loans…"                │
+  │                                                [●] 2 │
+  └──────────────────────────────────────────────────────┘
+
+  Fields:
+  ├── Agent avatar (32px) + agent type icon overlay
+  ├── Conversation title (auto-generated from first message topic)
+  ├── Last message preview (1 line, 40 char max, truncated)
+  ├── Relative timestamp ("2h ago", "Yesterday", date for older)
+  └── Unread badge (count) — right-aligned, red circle
+
+Sort Order:    Most recent first
+Pagination:    Load 20 per page, infinite scroll
+
+Search:
+  ├── Search bar above list
+  ├── Searches: Conversation content (client-side on loaded items)
+  ├── Placeholder: "Search conversations…"
+  └── Real-time filtering as customer types
+
+Empty State:
+  ├── Illustration: Chat bubble with sparkle
+  ├── Title: "No conversations yet"
+  ├── Description: "Start a chat with your AI Copilot"
+  └── CTA: [Start a Conversation] → opens chat panel
+
+7.13.2 CONVERSATION DETAIL
+────────────────────────────────────────────────────────────────
+
+Route:  /customer/chat/:conversationId
+API:    GET /chat/conversation/{id}
+Cache:  Redis key: chat:conversation:{id} (TTL: 5m)
+
+Behaviour:
+  ├── Full message history rendered top-to-bottom
+  ├── Date separators between sessions
+  ├── Rich cards re-rendered (product/goal/status cards)
+  ├── Expired quick replies shown as plain text (disabled)
+  ├── Scroll: Auto-scroll to bottom on load
+  └── Load more: "Load earlier messages" button at top
+
+7.13.3 CONVERSATION MANAGEMENT
+────────────────────────────────────────────────────────────────
+
+Actions available via [⋯] menu on conversation:
+  ├── Clear conversation:  Deletes messages from UI (local only)
+  ├── Export chat:         Downloads conversation as PDF
+  │   API: (client-side rendering of chat transcript to PDF)
+  ├── Archive:             Moves to archived conversations
+  └── Report a problem:   Opens feedback form → POST to existing
+                           analytics/feedback endpoint
+
+Retention Display:
+  ├── Show: "Conversations kept for 90 days"
+  └── Footer note on History page (compliance transparency)
+
+════════════════════════════════════════════════════════════════
+7.14 SUGGESTED PROMPTS
+════════════════════════════════════════════════════════════════
+
+7.14.1 CONTEXT-AWARE PROMPT STRIP
+────────────────────────────────────────────────────────────────
+
+Location:   Above input area in all chat modes
+Trigger:    Updated whenever agent changes or page context changes
+Source:     NextBestActionAgent (via GET /recommendations/{customerId})
+            + static prompt library (client-side, by context)
+Display:    Horizontal scrollable chip row
+
+Prompt Strip:
+  ┌─────────────────────────────────────────────────────────┐
+  │  💡 [Show home loans]  [My credit score]  [EMI calc]   │
+  │                       →  (scroll for more)              │
+  └─────────────────────────────────────────────────────────┘
+
+On chip tap:
+  ├── Text inserted into input field
+  ├── Message sent immediately
+  └── Chip strip refreshes after response
+
+7.14.2 PROMPT LIBRARY BY CONTEXT
+────────────────────────────────────────────────────────────────
+
+CONTEXT: Dashboard (ConversationalAgent / NBA)
+  ├── "What products am I eligible for?"
+  ├── "Check my application status"
+  ├── "What's my credit score?"
+  ├── "Set a new financial goal"
+  └── "Tell me about my life events"
+
+CONTEXT: Product Page (RecommendationEngine)
+  ├── "Am I eligible for this?"
+  ├── "What's the EMI for ₹20 Lakhs?"
+  ├── "Compare with similar products"
+  ├── "What documents do I need?"
+  └── "Why was this recommended to me?"
+
+CONTEXT: Application Page (QualificationAgent)
+  ├── "What happens after I submit?"
+  ├── "How long does approval take?"
+  ├── "I'm missing a document"
+  ├── "Can I save and continue later?"
+  └── "Who reviews my application?"
+
+CONTEXT: KYC Page (KYCAgent)
+  ├── "What documents do I need?"
+  ├── "My Aadhaar OTP didn't come"
+  ├── "My selfie keeps failing"
+  ├── "How long does KYC take?"
+  └── "Is my data secure?"
+
+CONTEXT: Goals Page (GoalDiscoveryAgent)
+  ├── "Help me set a new goal"
+  ├── "How am I tracking?"
+  ├── "Update my goal amount"
+  ├── "What products help my goal?"
+  └── "Remove a goal"
+
+CONTEXT: Life Events (LifeEventDetector)
+  ├── "Confirm my home purchase plan"
+  ├── "I'm getting married next year"
+  ├── "I have a new baby"
+  ├── "I'm planning to retire soon"
+  └── "My life situation has changed"
+
+7.14.3 EMPTY STATE PROMPT GRID
+────────────────────────────────────────────────────────────────
+
+Shown when: Chat window opens with no messages (new session)
+Layout:     2×3 grid of prompt cards
+
+  ┌────────────────────┬────────────────────┐
+  │  🏠 Explore         │  💳 Credit Card     │
+  │  Home Loans         │  Options            │
+  ├────────────────────┼────────────────────┤
+  │  📊 Check my        │  🎯 Set a financial │
+  │  Financial Health   │  goal               │
+  ├────────────────────┼────────────────────┤
+  │  📋 Application     │  🔍 Understand my   │
+  │  Status             │  recommendations    │
+  └────────────────────┴────────────────────┘
+
+On card tap:
+  → Sends predefined prompt text as user message
+  → Grid disappears after first message
+
+════════════════════════════════════════════════════════════════
+7.15 AI ERROR HANDLING
+════════════════════════════════════════════════════════════════
+
+7.15.1 ERROR TYPES AND RESPONSES
+────────────────────────────────────────────────────────────────
+
+ERROR TYPE 1: API Timeout (POST /chat/send-message > 30s)
+────────────────────────────────────────────────────────────────
+  Trigger:    Request timeout
+  UI:         Typing indicator disappears
+  Message:
+    ⚠️  "I'm taking longer than usual to respond.
+         This sometimes happens during peak hours.
+         Your message is still being processed."
+  Retry:      Automatic (1 retry after 5s)
+  On retry fail: "Still having trouble. Please try again."
+  Button:     [Try Again] (re-sends last message)
+  Fallback:   "If this keeps happening, you can reach us
+               at support@bankmate.ai"
+
+ERROR TYPE 2: Network Disconnection (Offline)
+────────────────────────────────────────────────────────────────
+  Trigger:    navigator.onLine === false
+  UI:         Orange banner inside chat panel
+  Message:    "You're offline. Messages will send when
+               you reconnect."
+  Behaviour:  Input disabled; last message queued
+  Recovery:   On reconnect → auto-send queued message
+               → "You're back online!" banner (2s, then hides)
+
+ERROR TYPE 3: Session Expired (401 from /chat/send-message)
+────────────────────────────────────────────────────────────────
+  Trigger:    API returns 401
+  UI:         Modal overlay on chat panel
+  Message:    "Your session has expired for security.
+               Please log in again to continue chatting."
+  Button:     [Log In Again] → /auth/login?returnUrl=/customer/chat
+  Behaviour:  Conversation state preserved in sessionStorage
+               (restored after re-login)
+
+ERROR TYPE 4: Agent Unavailable (503 from /chat/send-message)
+────────────────────────────────────────────────────────────────
+  Trigger:    API returns 503
+  Message:
+    🤖  "I'm currently undergoing a quick update
+         and will be back in a few minutes.
+         You can still browse products while you wait."
+  Fallback CTA: [Browse Products] → /customer/products
+  Retry:        Auto-retry every 60s with countdown
+                "Retrying in: 45 seconds"
+
+ERROR TYPE 5: Rate Limited (429 from /chat/send-message)
+────────────────────────────────────────────────────────────────
+  Trigger:    API returns 429
+  Message:    "You've been chatting a lot! Give me just
+               a moment to catch up."
+  Behaviour:  Input disabled for 30 seconds
+              Countdown timer shown in input placeholder
+              "Chat available in 28 seconds…"
+
+ERROR TYPE 6: Invalid Response (500 / malformed response)
+────────────────────────────────────────────────────────────────
+  Trigger:    API 500 or response parse failure
+  Message:    "I encountered an unexpected issue.
+               Let me try again."
+  Retry:      Auto-retry once
+  If fails:   "Something went wrong on my end. Please
+               try your question again or contact support."
+  Button:     [Retry] [Contact Support]
+
+7.15.2 GRACEFUL DEGRADATION
+────────────────────────────────────────────────────────────────
+
+If ConversationalAgent fully unavailable:
+  ├── Chat panel still opens
+  ├── Shows: "AI Copilot is temporarily unavailable"
+  ├── Suggests: Static help FAQ links
+  ├── Provides: Quick navigation to Products, Applications, KYC
+  └── Shows: Support contact details from /config/feature-flags
+
+If only specific agent unavailable:
+  ├── Switch to ConversationalAgent automatically
+  ├── Inform customer:
+      🤖 "I'm having trouble connecting to the
+          Recommendation Assistant right now.
+          I'll help you with general queries instead."
+  └── Prompted suggestions still available
+
+════════════════════════════════════════════════════════════════
+7.16 AI LOADING STATES
+════════════════════════════════════════════════════════════════
+
+7.16.1 LOADING STATE CATALOGUE
+────────────────────────────────────────────────────────────────
+
+STATE 1: Chat Panel Opening
+  ├── Trigger:     Floating button clicked
+  ├── Duration:    200ms (panel animation)
+  ├── Visual:      Panel slides in; skeleton of chat area shows
+  └── Skeleton:    1 agent message bubble (animated shimmer)
+                   1 customer message bubble (animated shimmer)
+
+STATE 2: Conversation History Loading
+  ├── Trigger:     /customer/chat or /customer/chat/:id load
+  ├── Duration:    Until GET /chat/history/{customerId} resolves
+  ├── Visual:      3–5 skeleton message bubbles
+  │               (alternating left/right, shimmer animation)
+  └── Text:        None (skeleton only)
+
+STATE 3: Agent Response Loading (Typing Indicator)
+  ├── Trigger:     POST /chat/send-message request in-flight
+  ├── Visual:
+  │   ┌──────────────────────────────────────────┐
+  │   │ 🤖  ● ● ●                                │
+  │   └──────────────────────────────────────────┘
+  │   Three dots bounce in sequence (up/down, 400ms cycle)
+  └── Max wait:    30s → then ERROR TYPE 1
+
+STATE 4: Agent Switching
+  ├── Trigger:     POST /chat/select-agent in-flight
+  ├── Duration:    300ms
+  ├── Visual:      Context strip shows:
+  │               "Connecting to [Agent Name]…" + spinner
+  └── On complete: Agent name updates + welcome message renders
+
+STATE 5: File Upload in Progress
+  ├── Trigger:     Customer attaches file to message
+  ├── Visual:      Progress bar in message preview
+  │               (0–100%, based on upload progress)
+  ├── Text:        "Uploading… 45%"
+  └── On complete: Preview shows thumbnail + [Send] enabled
+
+STATE 6: Voice Processing
+  ├── Trigger:     After voice recording stops
+  ├── Visual:      Spinner in input area
+  ├── Text:        "Processing audio…"
+  └── On complete: Transcribed text appears in input field
+
+STATE 7: Rich Card Loading (Product/Goal/Status)
+  ├── Trigger:     Agent response includes a card reference
+  │               while product data is being fetched
+  ├── Duration:    Until card data resolves
+  ├── Visual:      Shimmer skeleton of card (image, 2 text lines,
+  │               2 button placeholders)
+  └── On complete: Real card replaces skeleton (fade-in, 150ms)
+
+════════════════════════════════════════════════════════════════
+7.17 AI ACCESSIBILITY
+════════════════════════════════════════════════════════════════
+
+7.17.1 WCAG 2.2 AA COMPLIANCE
+────────────────────────────────────────────────────────────────
+
+Standard: WCAG 2.2 Level AA (consistent with Sections 5, 6)
+
+PERCEIVABLE
+════════════════════════════════════════════════════════════════
+
+Text Alternatives:
+  ├── All agent avatars:   alt="BankMate AI Copilot"
+  ├── All emoji in text:   aria-label (e.g. aria-label="Home")
+  ├── Product images in cards: alt="[Product Name] product image"
+  └── Loading spinners:    aria-label="Loading response"
+
+Color Contrast:
+  ├── Customer message text on brand background: ≥ 4.5:1
+  ├── Agent message text on gray background:     ≥ 4.5:1
+  ├── Timestamp text:                            ≥ 3:1 (large text rule)
+  ├── Quick reply buttons:                       ≥ 4.5:1
+  └── Error messages:                            ≥ 7:1 (critical)
+
+Color Independence:
+  ├── Message read status: Tick icon (not color only)
+  ├── Online status: Dot + "Online" text (not dot only)
+  ├── Match score: % number + progress bar (not color only)
+  └── Error state: Icon + text (not red color only)
+
+OPERABLE
+════════════════════════════════════════════════════════════════
+
+Keyboard Navigation:
+  ├── Tab:      Focus floats through interactive elements
+  │             Order: Floating button → Panel → Messages → Input
+  ├── Enter:    Activate focused button / send message
+  ├── Escape:   Close chat panel / dismiss modals
+  ├── Arrow ↑:  Navigate to previous message (when in message area)
+  ├── Arrow ↓:  Navigate to next message
+  └── Shift+Tab: Reverse focus order
+
+Focus Management:
+  ├── On panel open:  Focus moves to chat input
+  ├── On panel close: Focus returns to floating button
+  ├── On new message: Focus stays on input (not moved to message)
+  └── On error:       Focus moves to error message
+
+Skip Links:
+  ├── "Skip to latest message" (appears on Tab into chat area)
+  └── "Skip chat" (when chat is embedded — skip to page content)
+
+UNDERSTANDABLE
+════════════════════════════════════════════════════════════════
+
+Language:
+  ├── lang attribute:   Updated on language change (hi, mr, en)
+  ├── Messages:         Always in customer's preferredLanguage
+  └── Quick replies:    Translated per locale
+
+Error Identification:
+  ├── All errors:       Clear text explanation (no jargon)
+  ├── Retry actions:    Explicit button labels (not just "Retry")
+  └── Form errors:      Inline with field, not just color
+
+ROBUST
+════════════════════════════════════════════════════════════════
+
+ARIA Roles & Properties:
+  ├── Chat panel:           role="dialog" aria-label="BankMate AI Copilot"
+  ├── Message list:         role="log" aria-live="polite" aria-atomic="false"
+  ├── Agent messages:       aria-label="BankMate AI says: [message text]"
+  ├── Customer messages:    aria-label="You said: [message text]"
+  ├── Typing indicator:     aria-label="BankMate AI is typing"
+                            aria-live="polite"
+  ├── New message toast:    aria-live="assertive" (for urgent notifications)
+  ├── Input field:          aria-label="Type a message" aria-multiline="true"
+  ├── Send button:          aria-label="Send message"
+  ├── Voice button:         aria-label="Start voice input"
+  └── Quick reply chips:    role="button" aria-label="Send: [chip text]"
+
+Screen Reader Announcements:
+  ├── New message received:     Announced via aria-live="polite"
+  ├── Agent typing:             Announced once ("BankMate AI is typing")
+  ├── Error:                    Announced via aria-live="assertive"
+  ├── File upload complete:     Announced via aria-live="polite"
+  └── Agent switch:             Announced ("Now chatting with [Agent]")
+
+7.17.2 REDUCED MOTION
+────────────────────────────────────────────────────────────────
+
+Condition: prefers-reduced-motion: reduce
+
+  ├── Typing indicator dots:    Static dots (no bounce)
+  ├── Panel slide animation:    Instant show (no slide)
+  ├── Message fade-in:          Instant render (no fade)
+  ├── Pulse on floating button: No pulse animation
+  └── Typing effect (welcome):  Full text shown immediately
+
+7.17.3 HIGH CONTRAST MODE
+────────────────────────────────────────────────────────────────
+
+Condition: prefers-contrast: more
+
+  ├── Message bubbles:    Solid border added (2px)
+  ├── Quick reply chips:  Border increased (2px solid)
+  ├── Input field:        Border increased (2px solid)
+  └── All text:           Minimum 7:1 contrast ratio
+
+════════════════════════════════════════════════════════════════
+7.18 RESPONSIVE BEHAVIOUR
+════════════════════════════════════════════════════════════════
+
+7.18.1 BREAKPOINT BEHAVIOUR
+────────────────────────────────────────────────────────────────
+
+Breakpoints (consistent with Section 3):
+  ├── Mobile:  < 768px
+  ├── Tablet:  768px – 1279px
+  └── Desktop: ≥ 1280px
+
+DESKTOP (≥ 1280px)
+────────────────────────────────────────────────────────────────
+Floating Copilot:
+  ├── Width:     380px panel, right-anchored
+  ├── Height:    70vh (max 640px)
+  └── Position:  Fixed bottom-right (80px from bottom, 24px from right)
+
+Full-Screen Chat:
+  ├── Layout:    3-column (Sidebar 240px | Conversations 320px | Chat flex-1)
+  └── Min chat width: 600px
+
+Embedded Copilot:
+  ├── Width:     320px right panel
+  └── Page content: flex-1
+
+TABLET (768px – 1279px)
+────────────────────────────────────────────────────────────────
+Floating Copilot:
+  ├── Width:     360px panel
+  └── Position:  Fixed bottom-right (72px from bottom, 16px from right)
+
+Full-Screen Chat:
+  ├── Sidebar:   Hidden (collapsible burger)
+  ├── Layout:    2-column (Conversations 280px | Chat flex-1)
+  └── Conversations: Collapsible (icon to toggle)
+
+Embedded Copilot:
+  ├── Width:     280px right panel
+  └── Collapsible with toggle button
+
+MOBILE (< 768px)
+────────────────────────────────────────────────────────────────
+Floating Copilot:
+  ├── Expands:   Full-screen bottom sheet (100vw, ~85vh)
+  ├── Handle:    Drag handle at top of sheet
+  ├── Position:  Bottom 70px from screen edge
+  └── Z-index:   500
+
+Full-Screen Chat:
+  ├── Default:   Conversations list (full screen)
+  ├── Tap conv:  Transition to full-screen chat (slide left)
+  ├── Back:      Back button in header (slide right)
+  └── New chat:  FAB button (+) bottom-right
+
+Embedded Copilot:
+  ├── Default:   Hidden (collapsed)
+  ├── Trigger:   "Need help?" floating button at bottom
+  ├── Expands:   Bottom sheet (50vh, draggable to 90vh)
+  └── Dismiss:   Drag down or tap grey backdrop
+
+7.18.2 TOUCH INTERACTIONS (MOBILE)
+────────────────────────────────────────────────────────────────
+
+Swipe Right on message:    Shows timestamp
+Swipe Left on conversation: Reveals Delete / Archive actions
+Swipe Down on bottom sheet: Collapses/closes Copilot
+Long press on message:      Context menu (Copy, Report)
+Pinch-to-zoom:             Disabled in chat panel
+Double tap on rich card:   Highlights / selects
+
+7.18.3 KEYBOARD ON MOBILE
+────────────────────────────────────────────────────────────────
+
+On input focus (soft keyboard opens):
+  ├── Chat panel:    Scrolls up to stay visible above keyboard
+  ├── Message area:  Adjustable (viewport resize handled)
+  └── Suggested prompts: Scroll to stay visible above input
+
+════════════════════════════════════════════════════════════════
+7.19 MERMAID CONVERSATION FLOW
+════════════════════════════════════════════════════════════════
+
+```mermaid
+flowchart TD
+    A([Customer Opens App]) --> B{Has active\nsession?}
+    B -- No --> C[Login - Section 4]
+    B -- Yes --> D[Dashboard - Section 6]
+
+    D --> E{NBA Agent\nSuggestion?}
+    E -- Yes --> F[Floating Copilot\nPulses with badge]
+    E -- No --> G[Floating Copilot\nIdle]
+
+    F --> H{Customer\nEngages?}
+    G --> H
+    H -- No --> I[Remains on Dashboard]
+    H -- Yes --> J[Open Floating Copilot Panel]
+
+    J --> K[POST /chat/select-agent\nConversationalAgent default]
+    K --> L[Welcome Experience - 7.4]
+
+    L --> M{Customer\nIntent?}
+
+    M -- Product Discovery --> N[RecommendationEngine\nProduct Discovery Flow - 7.5]
+    M -- Financial Advice --> O[FinancialAnalysisAgent\nFinancial Advisor Flow - 7.6]
+    M -- Life Event --> P[LifeEventDetector\nLife Event Flow - 7.7]
+    M -- Recommendation Question --> Q[RecommendationEngine\nExplanation Flow - 7.8]
+    M -- Goal Setting --> R[GoalDiscoveryAgent\nGoal Planning Flow - 7.9]
+    M -- Apply for Product --> S[QualificationAgent\nApplication Assistance - 7.10]
+    M -- KYC Help --> T[KYCAgent\nKYC Assistance - 7.11]
+    M -- Voice --> U[VoiceEngagementAgent\nVoice Support - 7.12]
+
+    N --> V{Product\nSelected?}
+    V -- Yes --> S
+    V -- No --> W[Show Alternatives]
+    W --> V
+
+    O --> X{Gap\nIdentified?}
+    X -- Yes --> N
+    X -- No --> R
+
+    P --> Y{Life Event\nConfirmed?}
+    Y -- Yes --> N
+    Y -- No --> Z[Refine Detection]
+    Z --> P
+
+    R --> AA{Goal\nCreated?}
+    AA -- Yes --> N
+    AA -- No --> L
+
+    S --> AB{KYC\nComplete?}
+    AB -- No --> T
+    AB -- Yes --> AC[Application Form\n/customer/applications/new]
+    AC --> AD{Application\nSubmitted?}
+    AD -- No --> AC
+    AD -- Yes --> AE[Status Tracking\nTYPE 8 Card in Chat]
+
+    T --> AF{KYC\nApproved?}
+    AF -- No --> AG[Retry/Contact Support]
+    AF -- Yes --> AB
+
+    U --> AH[Voice Call\nIn-Call UI - 7.12.3]
+    AH --> AI[Post-Call Summary\nIn Chat]
+    AI --> L
+
+    AE --> AJ{Status?}
+    AJ -- Approved --> AK[Offer Card\n/customer/applications/:id/accept]
+    AJ -- More Info --> AC
+    AJ -- Rejected --> AL[Alternative Products\n7.5]
+    AJ -- Pending --> AM[Status Update\nKafka: APPLICATION_STATUS_CHANGED]
+    AM --> AJ
+
+    Q --> L
+
+    style A fill:#4CAF50,color:#fff
+    style L fill:#2196F3,color:#fff
+    style N fill:#9C27B0,color:#fff
+    style S fill:#FF9800,color:#fff
+    style T fill:#F44336,color:#fff
+    style AK fill:#4CAF50,color:#fff
+```
+
+════════════════════════════════════════════════════════════════
+7.20 SEQUENCE DIAGRAM
+════════════════════════════════════════════════════════════════
+
+```mermaid
+sequenceDiagram
+    actor C as Customer
+    participant FCP as Floating Copilot Panel
+    participant CS as chat.store.ts
+    participant CA as ChatAPI (/chat/*)
+    participant AG as AI Agents (Backend)
+    participant RD as Redis Cache
+    participant KF as Kafka Bus
+    participant NA as Notification Service
+
+    Note over C,NA: Section 7 — Full AI Copilot Sequence
+
+    %% Step 1: Panel Open
+    C->>FCP: Clicks floating button
+    FCP->>CS: dispatch(openCopilot)
+    CS->>CA: GET /chat/history/{customerId}
+    CA->>RD: Check chat:{customerId}:recent
+    alt Cache HIT
+        RD-->>CA: Cached history
+    else Cache MISS
+        CA->>CA: Fetch from DB
+        CA->>RD: SET chat:{customerId}:recent TTL 5m
+    end
+    CA-->>CS: Conversation history
+    CS-->>FCP: Render message history
+    FCP-->>C: Panel open, history visible
+
+    %% Step 2: Agent Selection
+    C->>FCP: Sends first message
+    FCP->>CS: dispatch(sendMessage, text)
+    CS->>CA: POST /chat/select-agent {agentType: "welcome"}
+    CA->>AG: Route to ConversationalAgent
+    AG-->>CA: Session ID + context
+    CA-->>CS: Agent session confirmed
+    CS->>KF: Publish CUSTOMER_ENGAGED
+    KF->>NA: Trigger engagement tracking
+
+    %% Step 3: Message Exchange
+    CS->>CA: POST /chat/send-message {text, sessionId}
+    FCP->>FCP: Show typing indicator
+    CA->>AG: Forward message to ConversationalAgent
+    AG->>RD: Read customer:{id}:profile (TTL 5m)
+    AG->>RD: Read recommendations:{customerId} (TTL 10m)
+    AG->>AG: Generate contextual response
+    AG-->>CA: Response payload (text + intent + card data)
+    CA-->>CS: Message + rich cards
+    CS-->>FCP: Render agent response
+    FCP->>FCP: Remove typing indicator
+    FCP-->>C: Message displayed
+
+    %% Step 4: Intent Routing — Product Discovery
+    C->>FCP: Selects "Show me Home Loans"
+    CS->>CA: POST /chat/select-agent {agentType: "recommendation"}
+    CA->>AG: Route to RecommendationEngine
+    CS->>CA: POST /chat/send-message {intent: "product_discovery"}
+    CA->>AG: Process request
+    AG->>RD: Read recommendations:{customerId}
+    alt Recommendations in cache
+        RD-->>AG: Cached recommendations
+    else Cache MISS
+        AG->>AG: Compute recommendations
+        AG->>RD: SET recommendations:{customerId} TTL 10m
+    end
+    AG-->>CA: Top 3 recommendations + explanation
+    CA-->>CS: Product rich cards + text
+    CS-->>FCP: Render TYPE 3 product cards
+    FCP-->>C: Product cards with Apply CTAs
+
+    %% Step 5: Life Event Proactive Push
+    KF->>KF: LIFE_EVENT_DETECTED published (background)
+    KF->>NA: Notification service receives event
+    NA->>CS: Push to frontend (SSE/WS)
+    CS->>FCP: dispatch(showLifeEventNudge)
+    FCP-->>C: Floating button pulses + badge appears
+    C->>FCP: Opens copilot
+    FCP->>CA: POST /chat/select-agent {agentType: "life-event"}
+    CA->>AG: Route to LifeEventDetector
+    AG-->>CA: Life event confirmation flow
+    CA-->>FCP: Life event message + quick replies
+    FCP-->>C: Confirmation prompt shown
+
+    %% Step 6: Application Start
+    C->>FCP: Selects "Apply Now" on product card
+    FCP->>CS: dispatch(navigateToApplication, productId)
+    CS->>CA: POST /chat/select-agent {agentType: "qualification"}
+    CA->>AG: Route to QualificationAgent
+    AG-->>CA: Pre-application checklist
+    CA-->>FCP: Checklist message
+    FCP-->>C: Checklist + CTA to Application page
+
+    %% Step 7: Status Update (Async)
+    KF->>KF: APPLICATION_STATUS_CHANGED published
+    KF->>NA: Notification triggered
+    NA->>CS: Push status update to frontend
+    CS->>FCP: dispatch(showStatusUpdate, appId)
+    CS->>CA: GET /applications/{appId}/status
+    CA-->>CS: Application status data
+    CS-->>FCP: TYPE 8 Application Status Card
+    FCP-->>C: Status card shown in chat with action CTA
+
+    Note over C,NA: All cache uses existing Redis strategy
+    Note over C,NA: All events use existing Kafka topics
+    Note over C,NA: All agents use existing backend AI agents
+```
+
+════════════════════════════════════════════════════════════════
+7.21 FUTURE SCALABILITY
+════════════════════════════════════════════════════════════════
+
+7.21.1 MULTIMODAL INPUT EXPANSION
+────────────────────────────────────────────────────────────────
+
+Current:    Text + file attachment + voice-to-text
+Future:     Camera input for document scanning within chat
+            (maps to existing DocumentScanner component)
+            Image analysis by AI agent (photo of property deed,
+            salary slip, etc.)
+Architecture note: Will use existing KYCAgent and file upload APIs.
+            No new backend APIs required.
+
+7.21.2 PROACTIVE COPILOT CAMPAIGNS
+────────────────────────────────────────────────────────────────
+
+Current:    NBA-triggered nudge on dashboard load
+Future:     Scheduled proactive messages based on calendar events
+            (e.g., "Your Fixed Deposit matures in 7 days")
+            Requires: Existing Kafka event pipeline +
+            CommunicationAgent scheduled trigger support.
+            Frontend: No architecture change needed.
+            Existing floating button pulse pattern used.
+
+7.21.3 MULTI-LANGUAGE CONVERSATIONAL AI
+────────────────────────────────────────────────────────────────
+
+Current:    English, Hindi, Marathi (i18n strings — Section 1 locales)
+Future:     AI agent responses in customer's preferred language
+            (Hindi/Marathi) — requires backend AI model upgrade.
+Frontend:   Already prepared via preferredLanguage in customer profile
+            and I18nProvider (Section 1). No frontend changes needed.
+
+7.21.4 COPILOT PERSONALISATION MEMORY
+────────────────────────────────────────────────────────────────
+
+Current:    Context from current session + profile + life events
+Future:     Long-term conversational memory stored per customer
+            (backend concern: customer preference store extension)
+Frontend:   Display "I remember you told me…" prefix in messages
+            when long-term memory context is provided in response.
+            No new UI component needed — uses existing message types.
+
+7.21.5 GROUP / JOINT APPLICATION COPILOT
+────────────────────────────────────────────────────────────────
+
+Current:    Single-customer conversation
+Future:     Joint home loan applications (co-applicant scenario)
+            Copilot handles both applicant profiles in one session.
+Architecture: Will use existing application + customer APIs.
+Frontend:   New message type: "Co-applicant view" — split-screen
+            conversation. Planned as TYPE 11 (future).
+
+7.21.6 COPILOT ANALYTICS & IMPROVEMENT LOOP
+────────────────────────────────────────────────────────────────
+
+Current:    Basic analytics events (CUSTOMER_ENGAGED, PRODUCT_VIEWED)
+Future:     Per-message customer satisfaction rating
+            (thumbs up/down after each agent response)
+            Conversation funnel analytics (drop-off per step)
+            A/B testing of agent response styles
+Frontend:   Thumbs rating component added below agent messages.
+            Mapped to existing analytics.api.ts endpoint.
+
+7.21.7 COPILOT AS BANKING COMMAND LINE
+────────────────────────────────────────────────────────────────
+
+Future:     "Pay ₹5,000 to Rahul" → AI interprets and routes to
+            payments flow (requires payment API — out of PS3 scope)
+            "Set EMI auto-pay for 5th of every month" → routes to
+            mandate setup flow
+Architecture note: Zero new backend AI agents needed. Existing
+            ConversationalAgent intent routing extended.
+            Frontend: Existing chat input → new intent handlers.
+
+════════════════════════════════════════════════════════════════
+SECTION 7 COMPLIANCE SUMMARY
+════════════════════════════════════════════════════════════════
+
+✅ Backend Architecture:      UNCHANGED
+✅ Database Schema:           UNCHANGED
+✅ API Endpoints:             UNCHANGED (only mapped to UI flows)
+✅ AI Agents:                 UNCHANGED (only consumed by frontend)
+✅ Kafka Events:              UNCHANGED (only consumed by frontend)
+✅ Redis Strategy:            UNCHANGED (only referenced for caching)
+✅ Business Logic:            UNCHANGED
+✅ Authentication:            UNCHANGED (Section 4 guards applied)
+✅ Routing:                   UNCHANGED (Section 2 chat routes used)
+✅ Layout:                    UNCHANGED (Section 3 Chat Layout used)
+✅ Dashboard:                 UNCHANGED (Section 6 AI integration intact)
+✅ Section 1–6 Compatibility: CONFIRMED
+
+✅ Documentation Only:        Confirmed
+✅ No React Code:             Confirmed
+✅ No TypeScript Code:        Confirmed
+✅ No CSS Code:               Confirmed
+✅ Implementation-Ready:      Confirmed
+
+════════════════════════════════════════════════════════════════
+SECTION 7 DELIVERABLES
+════════════════════════════════════════════════════════════════
+
+✅ 7.1  AI Copilot Architecture
+        (3 modes, agent routing, state machine, store)
+✅ 7.2  Conversational UI Layout
+        (floating panel, full-screen, embedded)
+✅ 7.3  Chat Window
+        (structure, header, 10 message types, input area)
+✅ 7.4  AI Welcome Experience
+        (first-time, returning, contextual greetings)
+✅ 7.5  AI Guided Product Discovery
+        (stages, eligibility check, product cards in chat)
+✅ 7.6  AI Financial Advisor
+        (financial health, EMI calculator, debt advisor)
+✅ 7.7  AI Life Event Conversation
+        (detection, confirmation, stage transitions)
+✅ 7.8  AI Recommendation Explanation
+        (why this product, match score breakdown, alternatives)
+✅ 7.9  AI Goal Planning
+        (discovery, creation, progress check)
+✅ 7.10 AI Application Assistance
+        (pre-application, in-application, status updates)
+✅ 7.11 AI KYC Assistance
+        (initiation, step guidance, completion, rejection)
+✅ 7.12 AI Voice Conversation Support
+        (voice input, campaign integration, in-call UI)
+✅ 7.13 Conversation History
+        (list, detail, management, retention)
+✅ 7.14 Suggested Prompts
+        (context-aware strip, prompt library, empty grid)
+✅ 7.15 AI Error Handling
+        (6 error types, graceful degradation)
+✅ 7.16 AI Loading States
+        (7 loading state catalogue)
+✅ 7.17 AI Accessibility
+        (WCAG 2.2 AA, keyboard nav, ARIA, reduced motion)
+✅ 7.18 Responsive Behaviour
+        (desktop/tablet/mobile, touch interactions)
+✅ 7.19 Mermaid Conversation Flow Diagram
+✅ 7.20 Sequence Diagram (full end-to-end)
+✅ 7.21 Future Scalability (7 dimensions)
+
+════════════════════════════════════════════════════════════════
+SECTION 7 COMPLETED
+WAITING FOR APPROVAL
+════════════════════════════════════════════════════════════════

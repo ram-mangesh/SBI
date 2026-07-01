@@ -1,0 +1,10 @@
+{
+  "name": "BankMate AI",
+  "short_name": "BankMate",
+  "description": "AI-powered banking experience for customers, relationship managers, and admins.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": []
+}

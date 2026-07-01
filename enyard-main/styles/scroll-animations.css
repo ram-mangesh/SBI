@@ -1,0 +1,74 @@
+/* ── SCROLL REVEAL ANIMATIONS ─────────────────────────────── */
+
+/* Base hidden state */
+.reveal {
+  opacity: 0;
+  transform: translateY(36px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Left slide-in variant */
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-left.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Right slide-in variant */
+.reveal-right {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-right.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Scale-in variant */
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-scale.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Stagger delay utilities */
+.reveal-d1, .reveal-left.reveal-d1, .reveal-right.reveal-d1, .reveal-scale.reveal-d1 { transition-delay: 0.08s; }
+.reveal-d2, .reveal-left.reveal-d2, .reveal-right.reveal-d2, .reveal-scale.reveal-d2 { transition-delay: 0.16s; }
+.reveal-d3, .reveal-left.reveal-d3, .reveal-right.reveal-d3, .reveal-scale.reveal-d3 { transition-delay: 0.24s; }
+.reveal-d4, .reveal-left.reveal-d4, .reveal-right.reveal-d4, .reveal-scale.reveal-d4 { transition-delay: 0.32s; }
+.reveal-d5, .reveal-left.reveal-d5, .reveal-right.reveal-d5, .reveal-scale.reveal-d5 { transition-delay: 0.40s; }
+.reveal-d6, .reveal-left.reveal-d6, .reveal-right.reveal-d6, .reveal-scale.reveal-d6 { transition-delay: 0.48s; }
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-left, .reveal-right, .reveal-scale {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

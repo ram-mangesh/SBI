@@ -1,0 +1,638 @@
+SECTION 4: AUTHENTICATION & SESSION MANAGEMENT (Continued) 4.2 SESSION
+MANAGEMENT (Continued) 4.2.4 AUTO LOGOUT TypeScript
+
+AUTO LOGOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Auto Logout Triggers: ────────────────────
+
+1.  Inactivity Timeout (Primary) ├─ Duration: 30 minutes (default), 24
+    hours (remember me) ├─ Trigger: No user interaction detected ├─
+    Warning: 2 minutes before logout └─ Action: Clear tokens, redirect
+    to login
+
+2.  Token Expiry (No Refresh Available) ├─ Condition: Access token
+    expired AND refresh token invalid ├─ Trigger: Automatic on next API
+    call or app activity ├─ Warning: None (immediate) └─ Action: Clear
+    tokens, redirect with message
+
+3.  Session Invalidation (Backend) ├─ Reasons: Password changed, account
+    suspended, admin action ├─ Detection: API returns 401 with specific
+    error code ├─ Warning: None (immediate) └─ Action: Clear tokens,
+    show reason, redirect
+
+4.  Multiple Failed Refresh Attempts ├─ Condition: 3 consecutive token
+    refresh failures ├─ Trigger: After 3rd failed attempt ├─ Warning:
+    None └─ Action: Clear tokens, redirect to login
+
+5.  Browser Close (Optional) ├─ Condition: rememberMe === false ├─
+    Trigger: Browser/tab close event ├─ Warning: None └─ Action: Clear
+    sessionStorage (if used)
+
+6.  Manual Logout (User Initiated) ├─ Trigger: User clicks logout ├─
+    Confirmation: Optional for sensitive actions ├─ Warning: “Are you
+    sure?” (if unsaved changes) └─ Action: Clear tokens, analytics,
+    redirect
+
+Implementation: ──────────────
+
+Inactivity Detection: let activityTimer; let warningTimer;
+
+const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes const
+WARNING_TIME = 2 * 60 * 1000; // 2 minutes
+
+Function resetActivityTimer: clearTimeout(activityTimer);
+clearTimeout(warningTimer);
+
+// Set warning timer (28 minutes) warningTimer = setTimeout(() => {
+showInactivityWarning(); }, INACTIVITY_LIMIT - WARNING_TIME);
+
+// Set logout timer (30 minutes) activityTimer = setTimeout(() => {
+autoLogout(‘inactivity’); }, INACTIVITY_LIMIT);
+
+Activity Events: events = [‘mousedown’, ‘mousemove’, ‘keypress’,
+‘scroll’, ‘touchstart’, ‘click’];
+
+events.forEach(event => { document.addEventListener(event,
+resetActivityTimer, true); });
+
+Throttle Activity Detection: let lastActivity = 0; const throttleDelay =
+1000; // 1 second
+
+Function throttledResetActivityTimer: const now = Date.now(); IF (now -
+lastActivity) > throttleDelay: lastActivity = now; resetActivityTimer();
+
+Auto Logout Function: ────────────────────
+
+Function autoLogout(reason): // 1. Clear timers
+clearTimeout(activityTimer); clearTimeout(warningTimer);
+
+// 2. Call logout API (optional, to invalidate backend session)
+api.post(‘/auth/logout’).catch(() => { // Ignore errors, continue logout
+});
+
+// 3. Clear all auth data localStorage.removeItem(‘authToken’);
+localStorage.removeItem(‘refreshToken’);
+localStorage.removeItem(‘tokenExpiry’);
+localStorage.removeItem(‘customerId’);
+localStorage.removeItem(‘userRole’);
+
+// 4. Reset auth state setAuthState(null);
+
+// 5. Track analytics analytics.track(‘auto_logout’, { reason: reason,
+sessionDuration: getSessionDuration(), timestamp: Date.now() });
+
+// 6. Store logout reason (to show message on login page)
+sessionStorage.setItem(‘logoutReason’, reason);
+
+// 7. Store return URL (current page) const returnUrl =
+window.location.pathname; sessionStorage.setItem(‘returnUrl’,
+returnUrl);
+
+// 8. Broadcast to other tabs broadcastChannel.postMessage({ type:
+‘LOGOUT’, reason });
+
+// 9. Redirect to login window.location.href = ‘/auth/login’;
+
+Logout Reasons: ──────────────
+
+Reason Codes: ├─ ‘inactivity’: User inactive for too long ├─
+‘token_expired’: Token expired, refresh failed ├─ ‘session_invalidated’:
+Backend invalidated session ├─ ‘password_changed’: Password changed in
+another session ├─ ‘account_suspended’: Account suspended by admin ├─
+‘suspicious_activity’: Security system detected threat ├─ ‘manual’: User
+clicked logout └─ ‘refresh_failed’: Multiple refresh failures
+
+Display Messages: { ‘inactivity’: “You were logged out due to
+inactivity”, ‘token_expired’: “Your session expired. Please log in
+again”, ‘session_invalidated’: “Your session is no longer valid”,
+‘password_changed’: “Password changed. Please log in with new password”,
+‘account_suspended’: “Your account has been suspended. Contact support”,
+‘suspicious_activity’: “Logged out due to suspicious activity”,
+‘manual’: “You have been logged out successfully”, ‘refresh_failed’:
+“Session error. Please log in again” }
+
+Show on Login Page: const logoutReason =
+sessionStorage.getItem(‘logoutReason’); IF logoutReason:
+showMessage(logoutMessages[logoutReason]);
+sessionStorage.removeItem(‘logoutReason’);
+
+Warning Modal: ─────────────
+
+Inactivity Warning Component: ┌──────────────────────────────────┐ │ ⏱️
+Still there? │ ├──────────────────────────────────┤ │ You’ll be logged
+out in: │ │ │ │ 01:45 │ │ │ │ Due to inactivity │ │ │ │ [Stay Logged In]
+[Logout Now] │ └──────────────────────────────────┘
+
+Countdown Update: let remainingTime = 120; // 2 minutes in seconds const
+countdownInterval = setInterval(() => { remainingTime–;
+updateCountdownDisplay(remainingTime);
+
+IF remainingTime <= 0: clearInterval(countdownInterval);
+autoLogout(‘inactivity’); }, 1000);
+
+Stay Logged In Button: OnClick: clearInterval(countdownInterval);
+closeWarningModal(); resetActivityTimer(); refreshToken(); // Optional:
+refresh token to extend session
+
+Logout Now Button: OnClick: clearInterval(countdownInterval);
+autoLogout(‘manual’);
+
+Prevent Auto Logout (During Critical Operations):
+─────────────────────────────────────────────────
+
+Scenarios: ├─ Form being filled (unsaved changes) ├─ File upload in
+progress ├─ Payment transaction in progress ├─ Video call active └─
+Long-running operation
+
+Implementation: let preventLogout = false;
+
+Function setPreventLogout(prevent, reason): preventLogout = prevent; IF
+prevent: // Pause auto-logout timers clearTimeout(activityTimer);
+clearTimeout(warningTimer); ELSE: // Resume auto-logout timers
+resetActivityTimer();
+
+Usage: // Before critical operation setPreventLogout(true,
+‘form_unsaved’);
+
+// After operation complete setPreventLogout(false);
+
+Modified Auto Logout: Function autoLogout(reason): IF preventLogout: //
+Show different message showMessage(“Cannot logout while operation in
+progress”); return; // Don’t logout
+
+// Proceed with logout …
+
+Browser Close Handling: ──────────────────────
+
+OnBeforeUnload Event: window.addEventListener(‘beforeunload’, (e) => {
+IF preventLogout: // Warn user about unsaved changes e.preventDefault();
+e.returnValue = ‘You have unsaved changes. Are you sure?’;
+
+IF rememberMe === false: // Optional: Clear session tokens on browser
+close sessionStorage.clear(); });
+
+OnUnload Event: window.addEventListener(‘unload’, () => { // Update last
+activity timestamp localStorage.setItem(‘lastActivity’, Date.now());
+
+// Log session end (beacon API for reliability)
+navigator.sendBeacon(‘/api/analytics/session-end’, JSON.stringify({
+customerId: customer.id, sessionDuration: getSessionDuration(),
+timestamp: Date.now() })); });
+
+Multi-Tab Logout Synchronization: ─────────────────────────────────
+
+Scenario: User logs out in one tab, all tabs should logout
+
+Implementation: const authChannel = new
+BroadcastChannel(‘auth-channel’);
+
+On Logout (in any tab): authChannel.postMessage({ type: ‘LOGOUT’,
+reason: reason, timestamp: Date.now() });
+
+In All Tabs (including sender): authChannel.onmessage = (event) => { IF
+event.data.type === ‘LOGOUT’: IF event.data.timestamp >
+lastReceivedLogout: lastReceivedLogout = event.data.timestamp;
+autoLogout(event.data.reason); };
+
+Fallback (localStorage Event): window.addEventListener(‘storage’, (e) =>
+{ IF e.key === ‘authToken’ AND e.newValue === null: // Token removed in
+another tab autoLogout(‘logout_other_tab’); });
+
+Analytics: ─────────
+
+Track Events: ├─ auto_logout_triggered (with reason) ├─
+auto_logout_warning_shown ├─ auto_logout_warning_dismissed ├─
+auto_logout_stayed_logged_in ├─ auto_logout_prevented (critical
+operation) └─ auto_logout_multi_tab_sync
+
+Track Properties: ├─ logout_reason: Why auto logout triggered ├─
+session_duration: Total session time ├─ inactivity_duration: Time
+inactive before logout ├─ warning_shown: Was warning shown? ├─
+user_action: Did user choose to stay or logout? └─ prevented: Was logout
+prevented? Why?
+
+Session Duration Calculation: const loginTime =
+localStorage.getItem(‘loginTime’); const sessionDuration = Date.now() -
+parseInt(loginTime); const sessionMinutes = Math.floor(sessionDuration /
+60000);
+
+Return URL Preservation: ───────────────────────
+
+On Auto Logout: // Save current page to return after re-login const
+returnUrl = window.location.pathname + window.location.search;
+sessionStorage.setItem(‘returnUrl’, returnUrl);
+
+On Login Success: const returnUrl = sessionStorage.getItem(‘returnUrl’);
+IF returnUrl AND returnUrl !== ‘/auth/login’:
+sessionStorage.removeItem(‘returnUrl’); navigate(returnUrl); ELSE:
+navigate(‘/customer/dashboard’);
+
+Security Considerations: ───────────────────────
+
+Validate Return URL: // Prevent open redirect attacks Function
+isValidReturnUrl(url): // Only allow internal paths IF
+url.startsWith(‘/’) AND NOT url.startsWith(‘//’): return true; return
+false;
+
+Don’t Save Sensitive Pages: const sensitivePages = [ ‘/customer/kyc’,
+‘/customer/applications//accept’, ’/admin/’];
+
+IF isSensitivePage(currentPath): // Don’t save as return URL
+sessionStorage.removeItem(‘returnUrl’); 4.2.5 REMEMBER ME TypeScript
+
+REMEMBER ME SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Feature Purpose: ───────────────
+
+Allow users to stay logged in for extended period (30 days) without
+requiring re-authentication on each browser restart.
+
+Implementation: ──────────────
+
+Checkbox on Login Form: ┌──────────────────────────────────┐ │ Email:
+priya@email.com │ │ Password: ******** │ │ │ │ ☑ Remember me for 30 days
+│ │ │ │ [Login] │ └──────────────────────────────────┘
+
+State: ├─ Default: Unchecked (more secure) ├─ User choice: Remembered in
+localStorage └─ Tooltip: “Stay logged in for 30 days”
+
+Backend Integration: ───────────────────
+
+Send Remember Me Preference: POST /auth/login { “email”:
+“priya@email.com”, “password”: “***“,”rememberMe”: true }
+
+Backend Response: { “token”: “access_token”, “refreshToken”:
+“refresh_token”, “expiresIn”: 2592000, // 30 days instead of 24 hours
+“refreshTokenExpiresIn”: 7776000 // 90 days instead of 30 days }
+
+Frontend Storage: localStorage.setItem(‘rememberMe’, ‘true’);
+localStorage.setItem(‘authToken’, token);
+localStorage.setItem(‘refreshToken’, refreshToken);
+localStorage.setItem(‘tokenExpiry’, Date.now() + expiresIn * 1000);
+
+Token Expiry Differences: ─────────────────────────
+
+Remember Me = FALSE (Default): ├─ Access Token: 24 hours (86400 seconds)
+├─ Refresh Token: 30 days (2592000 seconds) ├─ Inactivity Timeout: 30
+minutes └─ Browser Close: Optional session clear
+
+Remember Me = TRUE (Extended): ├─ Access Token: 30 days (2592000
+seconds) ├─ Refresh Token: 90 days (7776000 seconds) ├─ Inactivity
+Timeout: 24 hours └─ Browser Close: No effect (tokens persist)
+
+Behavior Differences: ────────────────────
+
+Without Remember Me: 1. User logs in 2. Active for 24 hours or until
+browser close 3. After 30 minutes inactivity: Warning 4. Must re-login
+daily or after browser restart
+
+With Remember Me: 1. User logs in (checkbox checked) 2. Active for 30
+days 3. After 24 hours inactivity: Warning 4. No re-login needed for 30
+days (unless explicitly logout) 5. Survives browser restarts
+
+Session Duration Calculation: ────────────────────────────
+
+Get Session Duration: const rememberMe =
+localStorage.getItem(‘rememberMe’) === ‘true’;
+
+const accessTokenDuration = rememberMe ? 30 * 24 * 60 * 60 * 1000 // 30
+days : 24 * 60 * 60 * 1000; // 24 hours
+
+const refreshTokenDuration = rememberMe ? 90 * 24 * 60 * 60 * 1000 // 90
+days : 30 * 24 * 60 * 60 * 1000; // 30 days
+
+const inactivityTimeout = rememberMe ? 24 * 60 * 60 * 1000 // 24 hours :
+30 * 60 * 1000; // 30 minutes
+
+Apply Session Settings: IF rememberMe: setInactivityTimeout(24 * 60 *
+60 * 1000); persistSession(true); ELSE: setInactivityTimeout(30 * 60 *
+1000); persistSession(false);
+
+Checkbox Persistence: ────────────────────
+
+Remember User Preference: // On login page load const savedRememberMe =
+localStorage.getItem(‘savedRememberMe’) === ‘true’;
+setCheckboxChecked(savedRememberMe);
+
+// On checkbox change OnChange: const isChecked = checkbox.checked;
+localStorage.setItem(‘savedRememberMe’, isChecked);
+
+Benefits: ├─ User doesn’t need to check every time ├─ Convenience for
+returning users └─ Can be changed anytime in settings
+
+Security Considerations: ───────────────────────
+
+When to Recommend Unchecking: ├─ Shared/public computers ├─ Temporary
+devices ├─ Work computers (company policy) └─ High-security accounts
+(admin)
+
+Display Warning (Optional): IF rememberMe AND isPublicComputer:
+showWarning(“Not recommended on shared computers”);
+
+Detection (Heuristic): ├─ Check browser: Incognito mode ├─ Check
+environment: Screen readers, accessibility features └─ Show prompt: “Is
+this a shared computer?”
+
+Force Re-authentication for Sensitive Actions: IF rememberMe AND
+action.requiresReAuth: promptForPassword(); verify();
+
+Examples: ├─ Changing password ├─ Updating email ├─ Accepting loan
+offers ├─ Deleting account └─ Accessing admin functions
+
+Revoke Remember Me: ──────────────────
+
+In Settings: ┌──────────────────────────────────┐ │ Security Settings │
+├──────────────────────────────────┤ │ ☑ Stay logged in (Remember me) │
+│ Next login required: 25 days │ │ │ │ [Logout All Devices] │ │ [Require
+Login Now] │ └──────────────────────────────────┘
+
+Require Login Now: OnClick: localStorage.removeItem(‘rememberMe’);
+autoLogout(‘user_revoked_remember_me’); showMessage(“You’ll need to log
+in again”);
+
+Logout All Devices: OnClick: API: POST /auth/logout-all-sessions
+localStorage.removeItem(‘rememberMe’);
+autoLogout(‘all_sessions_revoked’);
+
+Multi-Device Remember Me: ────────────────────────
+
+Each Device Tracks Independently: Device 1: rememberMe = true → Stays
+logged in 30 days Device 2: rememberMe = false → Requires daily login
+
+Backend Tracks: sessions = [ { deviceId: “device_1”, rememberMe: true,
+expiresAt: “2024-02-20” }, { deviceId: “device_2”, rememberMe: false,
+expiresAt: “2024-01-21” }]
+
+Display in Settings: ┌──────────────────────────────────┐ │ Active
+Sessions │ ├──────────────────────────────────┤ │ ● This Device (iPhone)
+│ │ Remember me: Enabled │ │ Expires: Jan 25 │ │ │ │ ○ Chrome (Windows)
+│ │ Remember me: Disabled │ │ Expires: Today │ │ [Revoke] │
+└──────────────────────────────────┘
+
+Remember Me + Browser Close: ───────────────────────────
+
+Behavior: IF rememberMe = true: // Tokens persist in localStorage //
+User remains logged in after browser restart ELSE: // Tokens cleared on
+browser close (optional) // User must login again
+
+Implementation (Optional Session-Only): IF rememberMe = false: // Move
+critical data to sessionStorage // Automatically cleared on browser
+close
+
+Analytics: ─────────
+
+Track Events: ├─ remember_me_checkbox_checked ├─
+remember_me_checkbox_unchecked ├─ remember_me_session_started ├─
+remember_me_session_expired ├─ remember_me_revoked └─
+remember_me_extended
+
+Track Properties: ├─ device_type: Device using remember me ├─
+session_duration: How long session lasted ├─ revoke_reason: Why remember
+me was revoked └─ remember_me_frequency: How often user enables it
+
+User Education: ──────────────
+
+Tooltip on Checkbox: “Keep you logged in for 30 days. Not recommended on
+shared computers.”
+
+Info Icon: OnClick: Show modal explaining feature
+
+Modal Content: ┌──────────────────────────────────┐ │ What is “Remember
+Me”? │ ├──────────────────────────────────┤ │ When enabled, you’ll stay
+│ │ logged in for 30 days without │ │ needing to enter your password. │
+│ │ │ ✓ Recommended: │ │ • Personal devices │ │ • Secure environments │
+│ │ │ ✗ Not Recommended: │ │ • Shared computers │ │ • Public computers │
+│ • Work computers │ │ │ │ You can revoke anytime in │ │ Settings >
+Security. │ │ │ │ [Got It] │ └──────────────────────────────────┘
+
+Compliance: ──────────
+
+Privacy Policy Mention: “When you enable ‘Remember Me’, we store
+authentication tokens on your device for up to 30 days to keep you
+logged in. You can revoke this anytime.”
+
+GDPR Compliance: ├─ User has control (can disable anytime) ├─ Clear
+explanation of what’s stored ├─ Data stored locally (user’s device) └─
+Can delete (logout + clear storage)
+
+Terms of Service: “Users are responsible for securing devices with
+‘Remember Me’ enabled. Disable on shared computers.” 4.2.6 TOKEN REFRESH
+STRATEGY TypeScript
+
+TOKEN REFRESH STRATEGY SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Refresh Triggers: ────────────────
+
+1.  Proactive Refresh (Before Expiry) ├─ Trigger: 5 minutes before token
+    expires ├─ Method: Background automatic refresh ├─ User Impact: None
+    (seamless) └─ Frequency: Once per token lifecycle
+
+2.  Reactive Refresh (On 401 Error) ├─ Trigger: API returns 401
+    Unauthorized ├─ Method: Interceptor catches, refreshes, retries ├─
+    User Impact: Slight delay (few milliseconds) └─ Frequency: As needed
+    when token expired unexpectedly
+
+3.  Manual Refresh (User Action) ├─ Trigger: User clicks “Stay Logged
+    In” in warning ├─ Method: Explicit refresh call ├─ User Impact:
+    Visible action └─ Frequency: Rare (only when warning shown)
+
+4.  On App Focus (Mobile/Desktop) ├─ Trigger: App comes to foreground
+    after being backgrounded ├─ Method: Check expiry, refresh if needed
+    ├─ User Impact: Brief loading on app open └─ Frequency: Each time
+    app gains focus
+
+Backend Refresh API: ───────────────────
+
+Endpoint: POST /auth/refresh Request: { “refreshToken”:
+“current_refresh_token” }
+
+Response (Success): { “status”: “SUCCESS”, “data”: { “token”:
+“new_access_token”, “refreshToken”: “new_refresh_token”, “expiresIn”:
+86400 }, “timestamp”: “2024-01-20T10:30:00Z” }
+
+Response (Error - Invalid Refresh Token): { “status”: “ERROR”,
+“message”: “Invalid or expired refresh token”, “errorCode”:
+“REFRESH_001”, “requiresLogin”: true }
+
+Proactive Refresh Implementation: ─────────────────────────────────
+
+Background Timer: let refreshTimer;
+
+Function scheduleTokenRefresh: const tokenExpiry =
+parseInt(localStorage.getItem(‘tokenExpiry’)); const now = Date.now();
+const timeUntilExpiry = tokenExpiry - now; const refreshLeadTime = 5 *
+60 * 1000; // 5 minutes
+
+IF timeUntilExpiry > refreshLeadTime: // Schedule refresh for 5 minutes
+before expiry const scheduleTime = timeUntilExpiry - refreshLeadTime;
+
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      refreshTokenProactively();
+    }, scheduleTime);
+
+Function refreshTokenProactively: const refreshToken =
+localStorage.getItem(‘refreshToken’);
+
+IF !refreshToken: // No refresh token, logout
+autoLogout(‘no_refresh_token’); return;
+
+api.post(‘/auth/refresh’, { refreshToken }) .then(response => {
+updateTokens(response.data); scheduleTokenRefresh(); // Schedule next
+refresh }) .catch(error => { handleRefreshError(error); });
+
+Call on App Load: useEffect(() => { scheduleTokenRefresh(); }, []);
+
+Reactive Refresh (Axios Interceptor):
+─────────────────────────────────────
+
+Response Interceptor: api.interceptors.response.use( (response) =>
+response, async (error) => { const originalRequest = error.config;
+
+    // Check if 401 error and not already retried
+    IF error.response?.status === 401 AND !originalRequest._retry:
+      originalRequest._retry = true;
+      
+      const refreshToken = localStorage.getItem('refreshToken');
+      
+      IF refreshToken:
+        try {
+          const response = await api.post('/auth/refresh', { refreshToken });
+          
+          // Update tokens
+          updateTokens(response.data);
+          
+          // Update Authorization header for retry
+          originalRequest.headers['Authorization'] = 
+            `Bearer ${response.data.token}`;
+          
+          // Retry original request
+          return api(originalRequest);
+          
+        } catch (refreshError) {
+          // Refresh failed, logout
+          autoLogout('refresh_failed');
+          return Promise.reject(refreshError);
+        }
+      ELSE:
+        // No refresh token, logout
+        autoLogout('no_refresh_token');
+        return Promise.reject(error);
+
+    // Other errors or already retried
+    return Promise.reject(error);
+
+} );
+
+Update Tokens Function: ──────────────────────
+
+Function updateTokens(data): const { token, refreshToken, expiresIn } =
+data;
+
+// Update localStorage localStorage.setItem(‘authToken’, token);
+localStorage.setItem(‘refreshToken’, refreshToken);
+localStorage.setItem(‘tokenExpiry’, Date.now() + expiresIn * 1000);
+
+// Update auth state (context/store) setAuthState({ token, refreshToken
+});
+
+// Reschedule proactive refresh scheduleTokenRefresh();
+
+// Broadcast to other tabs broadcastChannel.postMessage({ type:
+‘TOKEN_UPDATED’, token, refreshToken });
+
+// Log analytics analytics.track(‘token_refreshed’, { method:
+‘automatic’, timestamp: Date.now() });
+
+Refresh Error Handling: ──────────────────────
+
+Function handleRefreshError(error): const errorCode =
+error.response?.data?.errorCode;
+
+SWITCH errorCode: CASE ‘REFRESH_001’: // Invalid refresh token
+autoLogout(‘invalid_refresh_token’); break;
+
+    CASE 'REFRESH_002': // Refresh token expired
+      autoLogout('refresh_token_expired');
+      break;
+
+    CASE 'REFRESH_003': // User session invalidated
+      autoLogout('session_invalidated');
+      break;
+
+    DEFAULT:
+      // Network error or other
+      IF retryCount < 3:
+        retryCount++;
+        setTimeout(refreshTokenProactively, 5000); // Retry after 5 seconds
+      ELSE:
+        autoLogout('refresh_failed_multiple_times');
+
+Retry Logic: ───────────
+
+For Network Failures: let refreshRetryCount = 0; const
+MAX_REFRESH_RETRIES = 3;
+
+Function retryRefresh(refreshToken): IF refreshRetryCount >=
+MAX_REFRESH_RETRIES: // Give up, logout autoLogout(‘refresh_failed’);
+return;
+
+refreshRetryCount++;
+
+// Exponential backoff const delay = Math.pow(2, refreshRetryCount) *
+1000; // 2s, 4s, 8s
+
+setTimeout(() => { api.post(‘/auth/refresh’, { refreshToken })
+.then(response => { refreshRetryCount = 0; // Reset on success
+updateTokens(response.data); }) .catch(error => {
+retryRefresh(refreshToken); // Retry }); }, delay);
+
+Concurrent Refresh Prevention: ──────────────────────────────
+
+Problem: Multiple API calls fail simultaneously, each triggers refresh →
+duplicate refresh calls
+
+Solution: Single-Flight Pattern let refreshPromise = null;
+
+Function refreshToken(): // If refresh already in progress, return
+existing promise IF refreshPromise: return refreshPromise;
+
+// Create new refresh promise refreshPromise = api.post(‘/auth/refresh’,
+{ refreshToken: localStorage.getItem(‘refreshToken’) }) .then(response
+=> { updateTokens(response.data); return response.data.token; })
+.catch(error => { handleRefreshError(error); throw error; }) .finally(()
+=> { refreshPromise = null; // Clear after completion });
+
+return refreshPromise;
+
+Usage in Interceptor: try { const newToken = await refreshToken(); //
+Uses single-flight originalRequest.headers[‘Authorization’] =
+Bearer ${newToken}; return api(originalRequest); } catch (error) {
+return Promise.reject(error); }
+
+App Focus Refresh: ─────────────────
+
+Detect App Visibility: document.addEventListener(‘visibilitychange’, ()
+=> { IF document.visibilityState === ‘visible’: checkAndRefreshToken();
+});
+
+Mobile App Focus: window.addEventListener(‘focus’, () => {
+checkAndRefreshToken(); });
+
+Function checkAndRefreshToken: const tokenExpiry =
+parseInt(localStorage.getItem(‘tokenExpiry’)); const now = Date.now();
+
+IF now >= tokenExpiry: // Token expired while app was in background
+refreshTokenProactively(); ELSE IF (tokenExpiry - now) < 10 * 60 * 1000:
+// Less than 10 minutes remaining refreshTokenProactively();
+
+Multi-Tab Sync: ──────────────
+
+Token Refresh in One Tab → Update All Tabs
+
+Broadcasting: const authChannel = new BroadcastChannel(‘auth-channel’);
+
+On Token Update: authChannel.postMessage({ type: ‘TOKEN_UPDATED’,

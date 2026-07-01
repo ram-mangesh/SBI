@@ -1,0 +1,1353 @@
+SECTION 4: AUTHENTICATION & SESSION MANAGEMENT 📋 SECTION METADATA text
+
+Section: 4 - Authentication & Session Management Version: 1.0.0 Status:
+DRAFT - PENDING APPROVAL Dependencies: Section 1 (Project Structure),
+Section 2 (Routing), Section 3 (Layout) Extends: Existing BankMate AI
+Backend Authentication Architecture Modifications: NONE to existing
+backend/security logic 🎯 SECTION OVERVIEW This section defines the
+complete frontend authentication and session management architecture for
+the BankMate AI application. All authentication flows map to existing
+backend Spring Security + JWT implementation. No backend security logic
+is modified.
+
+4.1 AUTHENTICATION ARCHITECTURE 4.1.1 LOGIN FLOW TypeScript
+
+LOGIN FLOW SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Entry Points: ────────────
+
+✅ Direct URL: /auth/login ✅ Redirect: From protected route (with
+returnUrl) ✅ Session expired: Auto-redirect from any authenticated page
+✅ Logout: User initiated logout
+
+Backend API Mapping: ───────────────────
+
+Endpoint: POST /auth/login Request Body: { “email”:
+“priya.sharma@email.com”, “password”: “encrypted_password” }
+
+Response (Success): { “status”: “SUCCESS”, “data”: { “token”:
+“eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…”, “refreshToken”:
+“refresh_token_string”, “customer”: { “id”: “CUST001”, “firstName”:
+“Priya”, “lastName”: “Sharma”, “email”: “priya.sharma@email.com”,
+“role”: “CUSTOMER”, “customerType”: “salaried”, “kycStatus”: “APPROVED”,
+“profileCompletionPercentage”: 100 }, “expiresIn”: 86400, “requiresOTP”:
+false }, “timestamp”: “2024-01-20T10:30:00Z” }
+
+Response (OTP Required): { “status”: “OTP_REQUIRED”, “message”: “OTP
+sent to registered mobile”, “data”: { “otpSentTo”: “+91-XXXXX-43210”,
+“otpExpiresIn”: 300, “sessionId”: “temp_session_id” } }
+
+Response (Error): { “status”: “ERROR”, “message”: “Invalid credentials”,
+“errorCode”: “AUTH_001”, “timestamp”: “2024-01-20T10:30:00Z” }
+
+Frontend Flow: ─────────────
+
+Step 1: User Lands on Login Page ├─ Display: LoginForm component ├─
+Pre-filled: Email if coming from registration ├─ State: IDLE └─ Focus:
+Email input (auto-focus)
+
+Step 2: User Enters Credentials ├─ Email validation: Real-time (on blur)
+├─ Password validation: Minimum length check ├─ Show errors: Below
+respective fields └─ Submit button: Disabled until valid
+
+Step 3: User Submits Form ├─ State: SUBMITTING ├─ Button: Show spinner,
+text “Logging in…” ├─ Disable: All form inputs ├─ API Call: POST
+/auth/login └─ Timeout: 30 seconds
+
+Step 4A: Success (No OTP) ├─ Receive: JWT token + customer data ├─ Store
+Token: localStorage.setItem(‘authToken’, token) ├─ Store RefreshToken:
+localStorage.setItem(‘refreshToken’, refreshToken) ├─ Store Customer:
+Update AuthContext state ├─ Analytics: Track login event ├─ Redirect: │
+├─ IF returnUrl exists → Navigate to returnUrl │ ├─ IF profile
+incomplete → /customer/onboarding │ └─ ELSE → /customer/dashboard └─
+Duration: 500ms delay for smooth transition
+
+Step 4B: OTP Required ├─ Receive: OTP session ID ├─ Store:
+sessionStorage.setItem(‘otpSessionId’, sessionId) ├─ Navigate:
+/auth/otp-verify ├─ Pass: Phone number (masked) to OTP page └─ Start:
+OTP expiry countdown (5 minutes)
+
+Step 4C: Error ├─ State: ERROR ├─ Parse: Error message from response ├─
+Display: Error alert above form ├─ Enable: All form inputs ├─ Focus:
+Email or Password (based on error) ├─ Clear: Password field (security
+best practice) └─ Log: Error to analytics
+
+Login State Machine: ───────────────────
+
+States: ├─ IDLE → Initial state ├─ VALIDATING → Client-side validation
+in progress ├─ SUBMITTING → API call in progress ├─ OTP_REQUIRED → Need
+OTP verification ├─ SUCCESS → Login successful, redirecting └─ ERROR →
+Login failed, show error
+
+Transitions: IDLE → VALIDATING (on form submit) VALIDATING → SUBMITTING
+(validation passed) VALIDATING → ERROR (validation failed) SUBMITTING →
+OTP_REQUIRED (OTP needed) SUBMITTING → SUCCESS (login successful)
+SUBMITTING → ERROR (API error) OTP_REQUIRED → (navigate to OTP page)
+SUCCESS → (redirect to destination) ERROR → IDLE (user retries)
+
+Validation Rules: ────────────────
+
+Email Field: ├─ Required: Yes ├─ Format: Valid email regex │ └─
+/[1]+@[^\s@]+.[^\s@]+$/ ├─ Max length: 255 characters ├─ Trimmed:
+Auto-trim whitespace └─ Error messages: ├─ Empty: “Email is required” ├─
+Invalid: “Please enter a valid email” └─ Too long: “Email is too long”
+
+Password Field: ├─ Required: Yes ├─ Min length: 8 characters (display
+only, validated on backend) ├─ Max length: 128 characters ├─ Show/Hide:
+Toggle button (eye icon) └─ Error messages: ├─ Empty: “Password is
+required” └─ Too short: “Password must be at least 8 characters”
+
+Form Validation Timing: ├─ Email: On blur (after user leaves field) ├─
+Password: On submit (don’t reveal password requirements) ├─ Form: On
+submit (all fields) └─ Re-validate: On field change after first submit
+
+Security Features: ─────────────────
+
+Password Security: ├─ Type: password (masked input) ├─ Autocomplete:
+“current-password” ├─ Show/Hide toggle: Optional ├─ No copy/paste
+restrictions (accessibility) └─ Clear on error: Yes (prevent resubmit of
+wrong password)
+
+CSRF Protection: ├─ CSRF token: Retrieved from backend meta tag ├─
+Include in request: X-CSRF-TOKEN header └─ Validated: By Spring Security
+
+Rate Limiting: ├─ Frontend: Max 3 attempts per minute ├─ Backend: Max 5
+attempts per 5 minutes (IP-based) ├─ Show: Cooldown message if exceeded
+└─ Unlock: After cooldown period
+
+Brute Force Prevention: ├─ Failed attempts: Tracked in backend ├─
+Account lock: After 5 failed attempts ├─ Lock duration: 15 minutes ├─
+Message: “Account locked. Try after 15 minutes” └─ Alternative: “Forgot
+password?” link
+
+Session Hijacking Prevention: ├─ Token: Includes user agent hash ├─ IP
+validation: Optional (backend) ├─ Fingerprinting: Device fingerprint
+stored └─ Suspicious activity: Force re-login
+
+Remember Me: ───────────
+
+Checkbox: ├─ Label: “Remember me” ├─ Default: Unchecked ├─ Position:
+Below password field └─ Tooltip: “Stay logged in for 30 days”
+
+Behavior: IF checked: ├─ Set longer expiry: 30 days (backend) ├─ Store
+preference: localStorage.setItem(‘rememberMe’, ‘true’) └─ Extended
+session: Refresh token valid for 30 days
+
+IF not checked: ├─ Session expiry: 24 hours (default) ├─ Session-only:
+Clear on browser close (optional) └─ Standard refresh: 24-hour refresh
+token
+
+Social Login (Optional Future Feature):
+───────────────────────────────────────
+
+Providers: ├─ Google ├─ Facebook └─ Apple (iOS)
+
+Implementation: ├─ OAuth 2.0 flow ├─ Redirect to provider ├─ Callback to
+/auth/callback ├─ Exchange code for token └─ Create/link account
+
+Display: ├─ Divider: “OR” ├─ Social buttons: Below login form ├─ Icons:
+Provider logos └─ Text: “Continue with Google”
+
+Analytics: ─────────
+
+Track Events: ├─ login_page_viewed ├─ login_attempted ├─ login_success
+├─ login_failed (with reason: invalid_credentials, account_locked, etc.)
+├─ login_otp_required ├─ login_social_initiated (if applicable) └─
+login_remember_me_used
+
+Track Properties: ├─ login_method: “email” | “phone” | “social” ├─
+error_code: If failed ├─ redirect_from: If redirected from protected
+route ├─ device_type: “mobile” | “desktop” | “tablet” └─ browser: User
+agent info
+
+Error Handling: ──────────────
+
+Network Errors: ├─ Timeout: After 30 seconds ├─ Offline: Check
+navigator.onLine ├─ Retry: Show retry button └─ Message: “Network error.
+Please check connection”
+
+Server Errors: ├─ 500: “Server error. Please try again” ├─ 503: “Service
+unavailable. Try later” └─ Fallback: “Something went wrong”
+
+Validation Errors: ├─ 400: Parse field errors from response ├─ Display:
+Below respective fields └─ Format: {field: errorMessage}
+
+Authentication Errors: ├─ 401: “Invalid email or password” ├─ 403:
+“Account suspended. Contact support” ├─ 429: “Too many attempts. Try
+after X minutes” └─ Account locked: “Account locked. Reset password”
+
+User Feedback: ─────────────
+
+Loading State: ┌──────────────────────────────────┐ │ Email:
+priya@email.com │ │ Password: ******** │ │ │ │ [⏳ Logging in…] │ │
+(disabled, with spinner) │ └──────────────────────────────────┘
+
+Success State: ┌──────────────────────────────────┐ │ ✓ Login
+successful! │ │ Redirecting to dashboard… │
+└──────────────────────────────────┘ (Brief message, then redirect)
+
+Error State: ┌──────────────────────────────────┐ │ ✗ Invalid email or
+password │ │ Please try again or reset │ │ your password. │
+├──────────────────────────────────┤ │ Email: priya@email.com │ │
+Password: [cleared] │ │ │ │ [Login] │
+└──────────────────────────────────┘ 4.1.2 REGISTRATION FLOW TypeScript
+
+REGISTRATION FLOW SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Entry Points: ────────────
+
+✅ Direct URL: /auth/register ✅ From login page: “Don’t have account?
+Register” link ✅ Landing page: “Get Started” CTA
+
+Backend API Mapping: ───────────────────
+
+Endpoint: POST /customers/register Request Body: { “firstName”: “Priya”,
+“lastName”: “Sharma”, “email”: “priya.sharma@email.com”, “phone”:
+“+919876543210”, “password”: “encrypted_password”, “dob”: “1995-03-15”,
+“employmentType”: “SALARIED”, “monthlyIncome”: 75000, “city”: “Mumbai”,
+“agreeToTerms”: true }
+
+Response (Success): { “status”: “SUCCESS”, “message”: “Registration
+successful”, “data”: { “customerId”: “CUST001”, “email”:
+“priya.sharma@email.com”, “phone”: “+919876543210”, “requiresOTP”: true,
+“otpSentTo”: “+91-XXXXX-43210” }, “timestamp”: “2024-01-20T10:30:00Z” }
+
+Response (Error - Duplicate): { “status”: “ERROR”, “message”: “Email
+already registered”, “errorCode”: “REG_001”, “data”: { “field”: “email”,
+“suggestion”: “Try logging in or reset password” } }
+
+Frontend Flow: ─────────────
+
+Step 1: User Lands on Registration Page ├─ Display: RegistrationForm
+component ├─ Form Type: Multi-field form (all fields on one page) │ OR │
+Multi-step wizard (Optional future enhancement) ├─ State: IDLE └─ Focus:
+First name input
+
+Step 2: User Fills Form ├─ Real-time validation: On blur for each field
+├─ Password strength: Visual indicator ├─ Age calculation: Auto from DOB
+├─ Show errors: Inline below fields └─ Submit button: Enabled when all
+fields valid
+
+Step 3: User Submits Form ├─ State: SUBMITTING ├─ Button: Show spinner,
+text “Creating account…” ├─ Disable: All form inputs ├─ Hash password:
+Client-side (optional, or send plain to HTTPS) ├─ API Call: POST
+/customers/register └─ Timeout: 30 seconds
+
+Step 4A: Success (OTP Required) ├─ Receive: Customer ID, OTP info ├─
+Store: customerId in sessionStorage ├─ Analytics: Track registration
+event ├─ Navigate: /auth/otp-verify ├─ Pass: Phone number (masked),
+email └─ Message: “Account created! Verify your phone”
+
+Step 4B: Success (No OTP) ├─ Receive: JWT token directly ├─ Store: Token
+and customer data ├─ Navigate: /customer/onboarding └─ Message:
+“Welcome! Complete your profile”
+
+Step 4C: Error ├─ State: ERROR ├─ Parse: Field errors from response ├─
+Display: Errors below respective fields ├─ Enable: All form inputs ├─
+Focus: First error field └─ Log: Error to analytics
+
+Registration Form Fields: ────────────────────────
+
+Personal Information: ├─ First Name (required) ├─ Last Name (required)
+├─ Email (required, unique) ├─ Phone (required, 10 digits, unique) ├─
+Date of Birth (required, age >= 18) └─ Gender (optional)
+
+Account Security: ├─ Password (required, min 8 chars) ├─ Confirm
+Password (must match) └─ Show password toggle
+
+Employment Information: ├─ Employment Type (required, dropdown) │
+Options: Salaried, Self-Employed, Business, Freelancer, Student, Retired
+├─ Monthly Income (required, number) └─ City (required, autocomplete)
+
+Legal: ├─ Terms & Conditions checkbox (required) ├─ Privacy Policy
+checkbox (required) └─ Marketing consent checkbox (optional)
+
+Validation Rules: ────────────────
+
+First Name / Last Name: ├─ Required: Yes ├─ Min length: 2 characters ├─
+Max length: 50 characters ├─ Pattern: Letters only (Unicode support for
+non-English) ├─ Trim: Auto-trim whitespace └─ Error: “Name must be at
+least 2 characters”
+
+Email: ├─ Required: Yes ├─ Format: Valid email regex ├─ Max length: 255
+characters ├─ Uniqueness check: On blur (debounced API call) │ └─ GET
+/auth/check-email?email=xxx └─ Errors: ├─ “Email is required” ├─
+“Invalid email format” └─ “Email already registered” (with “Login” link)
+
+Phone: ├─ Required: Yes ├─ Format: 10 digits (India) ├─ Pattern: /[2]$/
+├─ Uniqueness check: On blur (debounced API call) │ └─ GET
+/auth/check-phone?phone=xxx ├─ Auto-format: +91-XXXXX-XXXXX └─ Errors:
+├─ “Phone is required” ├─ “Invalid phone number” └─ “Phone already
+registered”
+
+Date of Birth: ├─ Required: Yes ├─ Format: YYYY-MM-DD ├─ Age
+validation: >= 18 years ├─ Max age: <= 120 years ├─ Date picker:
+Calendar UI └─ Errors: ├─ “Date of birth is required” ├─ “You must be at
+least 18 years old” └─ “Invalid date”
+
+Password: ├─ Required: Yes ├─ Min length: 8 characters ├─ Strength
+requirements (backend enforced, frontend hints): │ ├─ At least 1
+uppercase letter │ ├─ At least 1 lowercase letter │ ├─ At least 1 number
+│ └─ At least 1 special character ├─ Max length: 128 characters ├─
+Strength indicator: Visual bar │ ├─ Weak: Red (< 50%) │ ├─ Medium:
+Yellow (50-80%) │ └─ Strong: Green (> 80%) └─ Errors: ├─ “Password is
+required” ├─ “Password must be at least 8 characters” └─ “Password is
+too weak”
+
+Confirm Password: ├─ Required: Yes ├─ Must match: Password field ├─
+Real-time check: On change └─ Error: “Passwords do not match”
+
+Employment Type: ├─ Required: Yes ├─ Options: Dropdown/Select ├─
+Default: Not selected └─ Error: “Please select employment type”
+
+Monthly Income: ├─ Required: Yes ├─ Type: Number (positive) ├─ Min: 0
+(for students, can be 0) ├─ Max: 99,999,999 ├─ Format: Currency (₹
+prefix) └─ Error: “Monthly income is required”
+
+Terms & Conditions: ├─ Required: Yes (checkbox must be checked) ├─ Link:
+Opens terms in new tab └─ Error: “You must agree to terms”
+
+Password Strength Indicator: ────────────────────────────
+
+Visual Representation: Weak: Password: ******** Strength: ████░░░░░░░░
+Weak
+
+Medium: Password: ******** Strength: ████████░░░░ Medium
+
+Strong: Password: ******** Strength: ████████████ Strong ✓
+
+Algorithm (Client-side estimation): score = 0 IF length >= 8: score +=
+25 IF contains uppercase: score += 25 IF contains lowercase: score += 15
+IF contains number: score += 20 IF contains special char: score += 15
+
+Strength: ├─ 0-40: Weak ├─ 41-75: Medium └─ 76-100: Strong
+
+Duplicate Check: ───────────────
+
+Email Check: ├─ Trigger: On blur (after user leaves email field) ├─
+Debounce: 500ms (prevent rapid API calls) ├─ API: GET
+/auth/check-email?email=xxx ├─ Response (Available): │ └─ { “available”:
+true } ├─ Response (Taken): │ └─ { “available”: false, “message”: “Email
+already registered” } ├─ Display: Show error below email field └─
+Suggest: “Already have an account? [Login]”
+
+Phone Check: ├─ Similar to email check ├─ API: GET
+/auth/check-phone?phone=xxx └─ Format: Auto-format before check
+(+91-XXXXX-XXXXX)
+
+Age Calculation: ───────────────
+
+Auto-calculate age from DOB: dob = “1995-03-15” today = new Date() age =
+today.year - dob.year
+
+IF (today.month < dob.month) OR (today.month === dob.month AND today.day
+< dob.day): age = age - 1
+
+IF age < 18: Show error: “You must be at least 18 years old” Disable
+submit button
+
+Multi-Step Wizard (Optional Future):
+────────────────────────────────────
+
+Step 1: Account Information ├─ Email, Phone, Password └─ Next button
+
+Step 2: Personal Information ├─ First Name, Last Name, DOB, Gender ├─
+Back button └─ Next button
+
+Step 3: Employment Information ├─ Employment Type, Monthly Income, City
+├─ Back button └─ Submit button
+
+Progress Indicator: ●━━━○━━━○ 1 2 3
+
+Benefits: ├─ Less overwhelming (fewer fields at once) ├─ Higher
+completion rate ├─ Can save draft between steps └─ Better mobile UX
+
+Analytics: ─────────
+
+Track Events: ├─ registration_page_viewed ├─ registration_started (first
+field filled) ├─ registration_field_error (which field, what error) ├─
+registration_submitted ├─ registration_success ├─ registration_failed
+(with error code) ├─ registration_duplicate_email ├─
+registration_duplicate_phone └─ registration_otp_required
+
+Track Properties: ├─ employment_type: Selected type ├─ income_range:
+Bucketed income ├─ age_group: Calculated age group ├─
+registration_source: “direct” | “landing_page” | “login_page” └─
+time_to_register: Time from page load to submit
+
+Security: ────────
+
+Password Handling: ├─ Never log password (even hashed) ├─ Send over
+HTTPS only ├─ Optional: Hash on client before send (bcrypt/argon2) └─
+Backend: Hash with salt (Spring Security)
+
+CSRF Protection: ├─ Include CSRF token in request └─ Validated by
+backend
+
+Captcha (If Suspicious Activity): ├─ Google reCAPTCHA v3 (invisible) ├─
+Triggered: If registration from suspicious IP ├─ Score threshold: 0.5 └─
+Fallback: reCAPTCHA v2 (checkbox)
+
+Email Verification: ──────────────────
+
+Strategy 1: Verify on Registration (Current) ├─ OTP sent to email or
+phone ├─ User verifies before account activated └─ Navigate to OTP page
+
+Strategy 2: Verify Later (Optional) ├─ Account created immediately ├─
+Verification email sent ├─ Reminder: Until verified └─ Some features
+locked until verified
+
+User Feedback: ─────────────
+
+Loading State: ┌──────────────────────────────────┐ │ Creating your
+account… │ │ [⏳ Processing] │ └──────────────────────────────────┘
+
+Success State: ┌──────────────────────────────────┐ │ ✓ Account created
+successfully! │ │ Verification code sent to │ │ +91-XXXXX-43210 │ │
+[Continue to Verification] │ └──────────────────────────────────┘
+
+Error State: ┌──────────────────────────────────┐ │ ✗ Registration
+failed │ │ Email already registered │ │ [Try logging in] [Try again] │
+└──────────────────────────────────┘
+
+Field-Level Errors: Email: priya@email.com ✗ Email already registered.
+[Login instead]
+
+Password: ******** Strength: ████░░░░░░░░ Weak ! Password should contain
+uppercase letter
+
+Confirm Password: ****** ✗ Passwords do not match 4.1.3 OTP VERIFICATION
+FLOW TypeScript
+
+OTP VERIFICATION FLOW SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Entry Points: ────────────
+
+✅ After registration: /auth/otp-verify ✅ After login (if 2FA enabled):
+/auth/otp-verify ✅ Phone verification: /auth/otp-verify
+
+Backend API Mapping: ───────────────────
+
+Endpoint: POST /auth/verify-otp Request Body: { “sessionId”:
+“temp_session_id”, “otp”: “123456”, “verificationType”: “REGISTRATION” |
+“LOGIN” | “PHONE_VERIFICATION” }
+
+Response (Success): { “status”: “SUCCESS”, “message”: “OTP verified
+successfully”, “data”: { “token”:
+“eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…”, “refreshToken”:
+“refresh_token_string”, “customer”: { “id”: “CUST001”, “firstName”:
+“Priya”, “email”: “priya@email.com”, “role”: “CUSTOMER”,
+“profileCompletionPercentage”: 20 }, “expiresIn”: 86400 }, “timestamp”:
+“2024-01-20T10:30:00Z” }
+
+Response (Error - Invalid OTP): { “status”: “ERROR”, “message”: “Invalid
+OTP”, “errorCode”: “OTP_001”, “data”: { “attemptsRemaining”: 2,
+“maxAttempts”: 3 } }
+
+Response (Error - Expired): { “status”: “ERROR”, “message”: “OTP
+expired”, “errorCode”: “OTP_002”, “data”: { “canResend”: true } }
+
+Resend OTP API: Endpoint: POST /auth/resend-otp Request Body: {
+“sessionId”: “temp_session_id”, “channel”: “SMS” | “EMAIL” }
+
+Response: { “status”: “SUCCESS”, “message”: “OTP sent successfully”,
+“data”: { “otpSentTo”: “+91-XXXXX-43210”, “otpExpiresIn”: 300,
+“canResendAfter”: 60 } }
+
+Frontend Flow: ─────────────
+
+Step 1: User Lands on OTP Page ├─ Receive: sessionId, phone/email from
+previous page ├─ Display: OTP input (6 digits) ├─ Show: Masked contact
+(e.g., +91-XXXXX-43210) ├─ Start: Countdown timer (5 minutes) ├─ State:
+IDLE └─ Focus: First OTP input box
+
+Step 2: User Enters OTP ├─ Input: 6-digit code ├─ Auto-advance: After
+each digit entered ├─ Auto-submit: When 6 digits entered (optional) ├─
+Show: Loading state on submit └─ Validation: Client-side (6 digits,
+numeric)
+
+Step 3: User Submits OTP ├─ State: VERIFYING ├─ Button: Show spinner,
+text “Verifying…” ├─ Disable: OTP inputs ├─ API Call: POST
+/auth/verify-otp └─ Timeout: 15 seconds
+
+Step 4A: Success ├─ Receive: JWT token + customer data ├─ Store: Token,
+refresh token, customer data ├─ Analytics: Track OTP verification
+success ├─ Navigate: │ ├─ IF registration → /customer/onboarding │ ├─ IF
+login → /customer/dashboard │ └─ IF phone verification → Return to
+settings └─ Show: Brief success message before redirect
+
+Step 4B: Error (Invalid OTP) ├─ State: ERROR ├─ Parse: Error message,
+attempts remaining ├─ Display: Error below OTP input ├─ Clear: OTP input
+├─ Focus: First OTP input ├─ Show: Attempts remaining (e.g., “2 attempts
+left”) └─ If max attempts: Lock and show “Request new OTP”
+
+Step 4C: Error (Expired OTP) ├─ State: EXPIRED ├─ Disable: OTP input ├─
+Show: “OTP expired” message ├─ Enable: Resend button └─ Clear: Timer
+
+Step 5: Resend OTP ├─ User clicks: “Resend OTP” button ├─ API Call: POST
+/auth/resend-otp ├─ Success: │ ├─ Show: “OTP sent” message │ ├─ Restart:
+5-minute timer │ ├─ Start: 60-second cooldown (can’t resend again) │ └─
+Clear: OTP input └─ Error: Show error message
+
+OTP Input Design: ────────────────
+
+6 Separate Input Boxes: ┌───┬───┬───┬───┬───┬───┐ │ 1 │ 2 │ 3 │ 4 │ 5 │
+6 │ └───┴───┴───┴───┴───┴───┘
+
+Behavior: ├─ Auto-focus next box: On digit entry ├─ Auto-focus previous:
+On backspace (if current empty) ├─ Paste support: Paste 6 digits fills
+all boxes ├─ Number only: inputMode=“numeric”, pattern=“[0-9]” └─
+Auto-submit: When all 6 filled (optional)
+
+Alternative: Single Input ┌─────────────┐ │ 1 2 3 4 5 6 │
+└─────────────┘ (Visually separated, but single input)
+
+Countdown Timer: ───────────────
+
+Display: “Code expires in 04:32” (MM:SS format)
+
+States: ├─ > 2 minutes: Green text ├─ 1-2 minutes: Yellow text ├─ < 1
+minute: Red text, flashing └─ Expired: “Code expired” (red)
+
+Implementation: startTime = 300 seconds (5 minutes) setInterval:
+currentTime = currentTime - 1 IF currentTime <= 0: state = EXPIRED
+clearInterval disable OTP input enable resend button
+
+Resend Cooldown: resendCooldown = 60 seconds After resend: Start
+cooldown timer Disable resend button Show: “Resend in 00:XX” After
+cooldown: Enable resend button
+
+Attempts Tracking: ─────────────────
+
+Max Attempts: 3 (backend enforced)
+
+Display: ┌──────────────────────────────────┐ │ ✗ Invalid OTP │ │ 2
+attempts remaining │ └──────────────────────────────────┘
+
+After 3 Failed Attempts: ┌──────────────────────────────────┐ │ ✗
+Maximum attempts exceeded │ │ Please request a new OTP │ │ [Request New
+OTP] │ └──────────────────────────────────┘
+
+Security lockout: Backend locks session New OTP required: User must
+request new OTP
+
+OTP Validation: ──────────────
+
+Client-Side: ├─ Length: Exactly 6 digits ├─ Type: Numeric only (0-9) ├─
+Required: All 6 boxes filled └─ Format: No spaces, no letters
+
+Backend: ├─ Validity: 5 minutes from send ├─ Max attempts: 3 per OTP ├─
+Session validation: sessionId must match └─ One-time use: OTP
+invalidated after verification
+
+Channel Selection: ─────────────────
+
+If both email and phone available: ┌──────────────────────────────────┐
+│ Verify your account │ │ │ │ OTP sent to: │ │ ○ SMS: +91-XXXXX-43210 │
+│ ○ Email: pr***@email.com │ │ │ │ [Switch to Email] │
+└──────────────────────────────────┘
+
+Switch: ├─ User clicks: “Switch to Email” ├─ API Call: POST
+/auth/resend-otp (channel: EMAIL) ├─ Update: Display and timer └─ Clear:
+OTP input
+
+Analytics: ─────────
+
+Track Events: ├─ otp_page_viewed ├─ otp_entered (partial, 3/6 digits) ├─
+otp_submitted ├─ otp_verified_success ├─ otp_verification_failed (with
+attempt number) ├─ otp_expired ├─ otp_resend_requested ├─
+otp_channel_switched └─ otp_max_attempts_exceeded
+
+Track Properties: ├─ verification_type: “registration” | “login” |
+“phone” ├─ time_to_verify: Seconds from OTP sent to verified ├─
+attempts_used: Number of attempts before success ├─ channel_used: “SMS”
+| “EMAIL” └─ resend_count: Number of times OTP was resent
+
+User Feedback: ─────────────
+
+Loading State: ┌──────────────────────────────────┐ │ [1][2][3][4][5][6]
+│ │ │ │ [⏳ Verifying…] │ └──────────────────────────────────┘
+
+Success State: ┌──────────────────────────────────┐ │ ✓ Verified
+successfully! │ │ Redirecting… │ └──────────────────────────────────┘
+
+Error State: ┌──────────────────────────────────┐ │ ✗ Invalid OTP.
+Please try again │ │ 2 attempts remaining │
+├──────────────────────────────────┤ │ [_][_][_][_][_][_] (cleared) │ │
+│ │ Didn’t receive? [Resend OTP] │ └──────────────────────────────────┘
+
+Expired State: ┌──────────────────────────────────┐ │ ⏱️ OTP expired │ │
+Please request a new code │ ├──────────────────────────────────┤ │
+[Request New OTP] │ └──────────────────────────────────┘
+
+Accessibility: ─────────────
+
+ARIA Labels:
+
+Screen Reader: ├─ Announce: “Enter 6-digit OTP” ├─ Announce: “OTP digit
+1 of 6” ├─ Announce: “Invalid OTP, 2 attempts remaining” └─ Announce:
+“OTP expires in 4 minutes 30 seconds”
+
+Keyboard Navigation: ├─ Tab: Move between OTP boxes ├─ Arrow keys:
+Navigate between boxes ├─ Backspace: Delete and move to previous └─
+Paste: Ctrl+V fills all boxes
+
+Paste Handling: ──────────────
+
+Scenario: User copies OTP from SMS/Email
+
+Implementation: onPaste event: 1. Prevent default 2. Get clipboard data
+3. Extract digits (regex: //) 4. Fill all 6 boxes 5. Auto-submit
+(optional)
+
+Example: Clipboard: “Your OTP is 123456” Extract: “123456” Fill:
+[1][2][3][4][5][6] Submit: Automatically 4.1.4 FORGOT PASSWORD FLOW
+TypeScript
+
+FORGOT PASSWORD FLOW SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Entry Points: ────────────
+
+✅ Login page: “Forgot password?” link ✅ Direct URL:
+/auth/forgot-password
+
+Backend API Mapping: ───────────────────
+
+Endpoint: POST /auth/forgot-password Request Body: { “email”:
+“priya.sharma@email.com” }
+
+Response (Success): { “status”: “SUCCESS”, “message”: “Password reset
+link sent to your email”, “data”: { “email”:
+“pr***@email.com“,”linkExpiresIn”: 3600, “alternativeMethod”: “OTP” },
+“timestamp”: “2024-01-20T10:30:00Z” }
+
+Response (Error - Email Not Found): { “status”: “ERROR”, “message”:
+“Email not registered”, “errorCode”: “PWD_001”, “suggestion”: “Check
+email or register new account” }
+
+Frontend Flow: ─────────────
+
+Step 1: User Lands on Forgot Password Page ├─ Display: Email input form
+├─ Message: “Enter your registered email” ├─ State: IDLE └─ Focus: Email
+input
+
+Step 2: User Enters Email ├─ Validation: Email format check (on blur) ├─
+Show error: If invalid format └─ Submit button: Enabled when valid
+
+Step 3: User Submits Email ├─ State: SUBMITTING ├─ Button: Show spinner,
+text “Sending…” ├─ Disable: Email input ├─ API Call: POST
+/auth/forgot-password └─ Timeout: 15 seconds
+
+Step 4A: Success ├─ State: SUCCESS ├─ Display: Success message │ └─
+“Password reset link sent to pr***@email.com” ├─ Show: Check email
+instruction ├─ Provide: “Didn’t receive? Resend” link ├─ Alternative:
+“Reset via OTP” option └─ Analytics: Track forgot password request
+
+Step 4B: Error (Email Not Found) ├─ State: ERROR ├─ Security Note: For
+security, might show success message anyway │ └─ Prevent email
+enumeration attacks ├─ If showing error: │ ├─ Message: “Email not found”
+│ └─ Suggest: “Check email or [Register]” └─ Enable: Email input for
+retry
+
+Reset Link Email: ────────────────
+
+Subject: “Reset Your BankMate AI Password”
+
+Content: Hi Priya,
+
+We received a request to reset your password.
+
+Click the link below to reset your password: [Reset Password]
+(button/link) → https://app.bankmate.com/auth/reset-password?token=xxx
+
+This link will expire in 1 hour.
+
+If you didn’t request this, ignore this email. Your password won’t be
+changed.
+
+Thanks, BankMate AI Team
+
+Token Format: ├─ Secure random string (UUID v4) ├─ Length: 64 characters
+├─ Expiry: 1 hour ├─ One-time use: Invalidated after use └─ Stored: In
+database with user mapping
+
+Alternative: OTP Method: ───────────────────────
+
+If user chooses “Reset via OTP”: 1. API: POST /auth/forgot-password-otp
+2. OTP sent to registered phone 3. Navigate: /auth/otp-verify 4. After
+OTP verified: Navigate to reset password 5. No email link needed
+
+Display: ┌──────────────────────────────────┐ │ Choose reset method: │ │
+│ │ ○ Email link (to pr***@email.com)│ │ ○ OTP (to +91-XXXXX-43210) │ │
+│ │ [Continue] │ └──────────────────────────────────┘
+
+Resend Link: ───────────
+
+If user didn’t receive email: ├─ Show: “Didn’t receive email?” link ├─
+Click: Resend email ├─ Cooldown: 60 seconds between resends ├─ Max
+resends: 3 per hour └─ API: Same POST /auth/forgot-password
+
+Security Considerations: ───────────────────────
+
+Email Enumeration Prevention: ├─ Option 1: Always show success message │
+└─ Even if email not found ├─ Option 2: Show generic message │ └─ “If
+email exists, link will be sent” └─ Backend: Rate limit requests (per
+IP)
+
+Rate Limiting: ├─ Max 3 requests per email per hour ├─ Max 10 requests
+per IP per hour ├─ Lockout: 24 hours if abuse detected └─ Message: “Too
+many requests. Try after X minutes”
+
+Token Security: ├─ Cryptographically secure random token ├─ Hashed in
+database (like password) ├─ Short expiry (1 hour) ├─ One-time use only
+└─ Invalidate: After successful reset or expiry
+
+Analytics: ─────────
+
+Track Events: ├─ forgot_password_page_viewed ├─
+forgot_password_requested ├─ forgot_password_email_sent ├─
+forgot_password_email_not_found ├─ forgot_password_link_resent ├─
+forgot_password_otp_method_chosen └─ forgot_password_rate_limited
+
+User Feedback: ─────────────
+
+Success State: ┌──────────────────────────────────┐ │ ✓ Password reset
+link sent │ │ │ │ Check your email at: │ │ pr***@email.com │ │ │ │ Link
+expires in 1 hour │ │ │ │ Didn’t receive? [Resend] │ │ [Back to Login] │
+└──────────────────────────────────┘
+
+Error State: ┌──────────────────────────────────┐ │ ✗ Email not found │
+│ │ │ This email is not registered. │ │ Check your email or register. │
+│ │ │ [Try Again] [Register] │ └──────────────────────────────────┘
+4.1.5 RESET PASSWORD FLOW TypeScript
+
+RESET PASSWORD FLOW SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Entry Points: ────────────
+
+✅ Email link: /auth/reset-password?token=xxx ✅ After OTP verification
+(forgot password via OTP)
+
+Backend API Mapping: ───────────────────
+
+Endpoint: POST /auth/reset-password Request Body: { “token”:
+“reset_token_from_url”, “newPassword”: “encrypted_new_password”,
+“confirmPassword”: “encrypted_new_password” }
+
+Response (Success): { “status”: “SUCCESS”, “message”: “Password reset
+successfully”, “data”: { “redirectTo”: “/auth/login”, “autoLogin”: false
+}, “timestamp”: “2024-01-20T10:30:00Z” }
+
+Response (Error - Invalid Token): { “status”: “ERROR”, “message”:
+“Invalid or expired reset link”, “errorCode”: “RST_001”, “data”: {
+“requestNewLink”: true } }
+
+Response (Error - Weak Password): { “status”: “ERROR”, “message”:
+“Password does not meet requirements”, “errorCode”: “RST_002”, “data”: {
+“requirements”: [ “At least 8 characters”, “At least 1 uppercase
+letter”, “At least 1 number”, “At least 1 special character” ] } }
+
+Frontend Flow: ─────────────
+
+Step 1: User Clicks Reset Link ├─ Parse: Token from URL query parameter
+├─ Validate: Token exists and not empty ├─ API Call: GET
+/auth/validate-reset-token?token=xxx │ └─ Check if token valid before
+showing form ├─ If valid: │ └─ Show: Reset password form ├─ If invalid:
+│ └─ Show: Error page with “Request new link” └─ State: IDLE
+
+Step 2: User Enters New Password ├─ Display: New password field ├─
+Display: Confirm password field ├─ Show: Password strength indicator ├─
+Real-time: Match validation (confirm password) ├─ Requirements: Display
+password rules └─ Submit button: Enabled when all valid
+
+Step 3: User Submits New Password ├─ State: SUBMITTING ├─ Button: Show
+spinner, text “Resetting…” ├─ Disable: Both password fields ├─ Hash:
+Password (optional, client-side) ├─ API Call: POST /auth/reset-password
+└─ Timeout: 15 seconds
+
+Step 4A: Success ├─ State: SUCCESS ├─ Show: Success message ├─
+Analytics: Track password reset success ├─ Auto-redirect: To login page
+after 3 seconds ├─ Option: Auto-login (if backend returns token) └─
+Message: “Password reset! Logging you in…”
+
+Step 4B: Error ├─ State: ERROR ├─ Parse: Error message ├─ Display: Error
+below form ├─ Enable: Password fields ├─ Clear: Password fields
+(security) └─ Focus: New password field
+
+Token Validation: ────────────────
+
+On Page Load: GET /auth/validate-reset-token?token=xxx
+
+Response (Valid): { “valid”: true, “email”:
+“pr***@email.com“,”expiresIn”: 1800 }
+
+Response (Invalid): { “valid”: false, “reason”: “EXPIRED” | “INVALID” |
+“ALREADY_USED” }
+
+Display (Invalid Token): ┌──────────────────────────────────┐ │ ✗
+Invalid Reset Link │ │ │ │ This link has expired or │ │ already been
+used. │ │ │ │ [Request New Link] │ │ [Back to Login] │
+└──────────────────────────────────┘
+
+Password Requirements: ─────────────────────
+
+Requirements (Backend Enforced): ├─ Minimum length: 8 characters ├─ At
+least 1 uppercase letter (A-Z) ├─ At least 1 lowercase letter (a-z) ├─
+At least 1 number (0-9) ├─ At least 1 special character (!@#$%^&*) └─
+Maximum length: 128 characters
+
+Display Requirements: ┌──────────────────────────────────┐ │ Password
+must contain: │ │ ✓ At least 8 characters │ │ ✗ At least 1 uppercase
+letter │ │ ✓ At least 1 lowercase letter │ │ ✗ At least 1 number │ │ ✗
+At least 1 special character │ └──────────────────────────────────┘
+
+Real-Time Validation: As user types, update checkmarks: ✗ → Red (not
+met) ✓ → Green (met)
+
+Password Strength: (Same as registration)
+
+Confirm Password: ────────────────
+
+Real-time matching: New Password: ******** Confirm Password: ****** ✗
+Passwords do not match
+
+New Password: ******** Confirm Password: ******** ✓ Passwords match
+
+Security Features: ─────────────────
+
+Token Expiry: ├─ Show countdown: “Link expires in 25 minutes” ├─
+Warning: When < 5 minutes ├─ Expired: Redirect to “Request new link” └─
+Auto-check: Every 60 seconds
+
+One-Time Use: ├─ Token invalidated: After successful reset ├─ Prevent:
+Multiple uses of same link └─ If reused: Show error “Link already used”
+
+Password History: ├─ Backend check: New password != old password ├─
+Error: “Cannot use previous password” └─ History: Last 3 passwords
+(optional)
+
+Session Invalidation: ├─ After reset: All existing sessions invalidated
+├─ User must: Log in again └─ Security: Prevent unauthorized access
+
+Analytics: ─────────
+
+Track Events: ├─ reset_password_page_viewed ├─
+reset_password_token_valid ├─ reset_password_token_invalid (with reason)
+├─ reset_password_submitted ├─ reset_password_success ├─
+reset_password_failed (with error) └─ reset_password_weak_password
+
+Track Properties: ├─ token_age: How old was the token ├─
+password_strength: Final strength score └─ time_to_reset: Time from link
+click to success
+
+User Feedback: ─────────────
+
+Success State: ┌──────────────────────────────────┐ │ ✓ Password reset
+successfully! │ │ │ │ Redirecting to login… │ │ (Auto-redirect in 3
+seconds) │ │ │ │ [Login Now] │ └──────────────────────────────────┘
+
+Error State (Weak Password): ┌──────────────────────────────────┐ │ ✗
+Password does not meet │ │ requirements │ │ │ │ New Password: ****** │ │
+Strength: ████░░░░░░░░ Weak │ │ │ │ Missing: │ │ • At least 1 uppercase
+letter │ │ • At least 1 number │ └──────────────────────────────────┘
+
+Auto-Login Option: ─────────────────
+
+If backend returns token after reset: 1. Store token 2. Update auth
+state 3. Redirect to /customer/dashboard 4. Skip login page
+
+Benefits: ├─ Better UX (one less step) ├─ Immediate access └─ User
+doesn’t need to remember new password immediately
+
+Security consideration: ├─ Only if reset was secure (valid token + OTP)
+└─ Optional: Send email notification “Password changed and logged in”
+4.2 SESSION MANAGEMENT 4.2.1 JWT LIFECYCLE TypeScript
+
+JWT LIFECYCLE SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Token Structure: ───────────────
+
+JWT Token Format (3 parts, dot-separated): header.payload.signature
+
+Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
+eyJzdWIiOiJDVVNUMDAxIiwicm9sZSI6IkNVU1RPTUVSIiwiaWF0IjoxNjE2MjM5MDIyfQ.
+SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+Decoded Payload: { “sub”: “CUST001”, // Customer ID “email”:
+“priya@email.com”, “role”: “CUSTOMER”, // CUSTOMER | ADMIN | RM
+“customerType”: “salaried”, “iat”: 1616239022, // Issued at (timestamp)
+“exp”: 1616325422, // Expires at (timestamp) “jti”: “unique-jwt-id”, //
+JWT ID (for revocation) “iss”: “bankmate-api”, // Issuer “aud”:
+“bankmate-frontend” // Audience }
+
+Token Types: ───────────
+
+Access Token: ├─ Purpose: API authentication ├─ Expiry: 24 hours
+(default) ├─ Expiry (Remember Me): 30 days ├─ Storage: localStorage (or
+httpOnly cookie) ├─ Transmission: Authorization: Bearer └─ Refresh: Via
+refresh token
+
+Refresh Token: ├─ Purpose: Obtain new access token ├─ Expiry: 30 days
+(default) ├─ Expiry (Remember Me): 90 days ├─ Storage: localStorage (or
+httpOnly cookie) ├─ Transmission: Only to /auth/refresh endpoint └─
+One-time use: Invalidated after refresh
+
+Token Issuance: ──────────────
+
+On Successful Login/Registration: Backend returns: { “token”:
+“access_token”, “refreshToken”: “refresh_token”, “expiresIn”: 86400 }
+
+Frontend stores: localStorage.setItem(‘authToken’, token);
+localStorage.setItem(‘refreshToken’, refreshToken);
+localStorage.setItem(‘tokenExpiry’, Date.now() + expiresIn * 1000);
+
+Token Validation: ────────────────
+
+On Every API Request: 1. Get token from localStorage 2. Check expiry:
+currentTime = Date.now() IF currentTime >= tokenExpiry: Attempt token
+refresh ELSE: Use token 3. Add to request header: headers: {
+‘Authorization’: Bearer ${token} }
+
+On App Load: 1. Check if token exists 2. Check if token expired 3. If
+expired: Attempt refresh 4. If refresh fails: Redirect to login 5. If
+valid: Load user data
+
+Token Refresh: ─────────────
+
+Automatic Refresh Strategy: ├─ Trigger: 5 minutes before expiry ├─
+Method: Silent background refresh ├─ Fallback: If auto-refresh fails,
+show re-login prompt
+
+Manual Refresh (On 401 Response): 1. API returns 401 Unauthorized 2.
+Interceptor catches error 3. Attempt token refresh 4. If successful:
+Retry original request 5. If failed: Logout and redirect to login
+
+Refresh API: Endpoint: POST /auth/refresh Request: { “refreshToken”:
+“current_refresh_token” }
+
+Response (Success): { “token”: “new_access_token”, “refreshToken”:
+“new_refresh_token”, “expiresIn”: 86400 }
+
+Response (Error - Invalid Refresh Token): { “status”: “ERROR”,
+“message”: “Invalid refresh token”, “errorCode”: “AUTH_003” }
+
+Implementation Flow: 1. Store new tokens 2. Update expiry time 3. Retry
+failed request (if from 401) 4. Continue user session
+
+Proactive Refresh: ─────────────────
+
+Background Timer: setInterval(() => { const timeUntilExpiry =
+tokenExpiry - Date.now(); const fiveMinutes = 5 * 60 * 1000;
+
+IF timeUntilExpiry <= fiveMinutes AND timeUntilExpiry > 0:
+refreshToken(); }, 60000); // Check every minute
+
+Benefits: ├─ Seamless user experience ├─ No sudden logouts ├─ No
+interruption during active use └─ Handles edge cases (browser sleep)
+
+Token Revocation: ────────────────
+
+Scenarios: ├─ User logout ├─ Password reset ├─ Suspicious activity
+detected ├─ Admin action (ban user) └─ Manual revocation
+
+Backend Implementation: ├─ Blacklist: Store revoked token JTIs in Redis
+├─ Check: On every request, check if JTI blacklisted ├─ TTL: Blacklist
+entry expires when token would expire └─ Cleanup: Auto-cleanup expired
+entries
+
+Frontend: ├─ On logout: Clear tokens from storage ├─ No need to call
+revoke API (backend handles) └─ Redirect to login
+
+Token Security: ──────────────
+
+HTTPS Only: ├─ Tokens transmitted: Only over HTTPS ├─ Never log: Token
+contents └─ Never expose: In URL parameters
+
+Storage Security: ├─ Option 1: localStorage │ ├─ Pros: Easy access,
+persists across tabs │ ├─ Cons: Vulnerable to XSS │ └─ Mitigation:
+Sanitize all inputs, CSP headers ├─ Option 2: httpOnly Cookie │ ├─ Pros:
+Not accessible to JavaScript (XSS protection) │ ├─ Cons: CSRF
+vulnerability │ └─ Mitigation: CSRF tokens, SameSite=Strict └─
+Recommended: localStorage with strict CSP
+
+XSS Protection: ├─ Content Security Policy (CSP) ├─ Input sanitization
+├─ Escape HTML output └─ Validate/sanitize user input
+
+CSRF Protection: ├─ Include CSRF token in forms ├─ Validate on backend
+└─ SameSite cookie attribute
+
+Token in Transit: ├─ Always HTTPS ├─ Authorization header (not URL) ├─
+No token in logs └─ No token in error messages
+
+Token Expiry Handling: ─────────────────────
+
+States: ├─ VALID: Token valid, use normally ├─ EXPIRING_SOON: < 5
+minutes until expiry ├─ EXPIRED: Token expired └─ INVALID: Token
+malformed or revoked
+
+Expiring Soon: ├─ Auto-refresh: In background ├─ No user action: Needed
+└─ Transparent: To user
+
+Expired: ├─ Try refresh: Automatically ├─ If success: Continue session
+├─ If fail: Show re-login prompt └─ Save state: To return after login
+
+Invalid: ├─ Clear tokens: Immediately ├─ Redirect: To login ├─ Show
+message: “Session invalid, please log in” └─ Log: To security analytics
+
+Multi-Tab Synchronization: ─────────────────────────
+
+Scenario: User logged in multiple tabs
+
+Solution 1: localStorage Events window.addEventListener(‘storage’, (e)
+=> { IF e.key === ‘authToken’: IF e.newValue === null: // Token removed
+(logout in another tab) logout(); ELSE: // Token updated (refresh in
+another tab) updateToken(e.newValue); });
+
+Solution 2: BroadcastChannel const channel = new
+BroadcastChannel(‘auth-channel’);
+
+On logout in one tab: channel.postMessage({ type: ‘LOGOUT’ });
+
+On other tabs: channel.onmessage = (event) => { IF event.data.type ===
+‘LOGOUT’: logout(); };
+
+Benefits: ├─ Logout in one tab → All tabs logout ├─ Token refresh in one
+tab → All tabs updated └─ Consistent auth state across tabs 4.2.2 TOKEN
+STORAGE STRATEGY TypeScript
+
+TOKEN STORAGE SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Storage Location: ────────────────
+
+Primary: localStorage ├─ Key: ‘authToken’ ├─ Value: JWT string ├─
+Accessible: All tabs/windows (same origin) └─ Persists: Until explicitly
+removed
+
+Secondary: sessionStorage (Alternative) ├─ Key: ‘authToken’ ├─ Value:
+JWT string ├─ Accessible: Current tab only └─ Persists: Until tab closed
+
+Alternative: httpOnly Cookie ├─ Set by: Backend (Set-Cookie header) ├─
+Accessible: Backend only (not JavaScript) ├─ Secure: Yes └─ SameSite:
+Strict
+
+Chosen Strategy: localStorage ─────────────────────────────
+
+Reasons: ├─ Ease of access for API calls ├─ Persistent across browser
+restarts ├─ Multi-tab support ├─ Client-side token refresh └─ Better for
+SPA architecture
+
+Storage Keys: ────────────
+
+Auth Keys: ├─ ‘authToken’: JWT access token ├─ ‘refreshToken’: Refresh
+token ├─ ‘tokenExpiry’: Expiry timestamp (milliseconds) ├─ ‘customerId’:
+Customer ID (for quick access) └─ ‘userRole’: User role (CUSTOMER,
+ADMIN, RM)
+
+Session Keys: ├─ ‘lastActivity’: Last user activity timestamp ├─
+‘sessionId’: Unique session identifier └─ ‘deviceFingerprint’: Device
+identification
+
+Preference Keys: ├─ ‘rememberMe’: Boolean (remember me preference) ├─
+‘theme’: User theme preference └─ ‘language’: User language preference
+
+Storage Operations: ──────────────────
+
+Save Token (After Login): localStorage.setItem(‘authToken’, token);
+localStorage.setItem(‘refreshToken’, refreshToken);
+localStorage.setItem(‘tokenExpiry’, Date.now() + expiresIn * 1000);
+localStorage.setItem(‘customerId’, customer.id);
+localStorage.setItem(‘userRole’, customer.role);
+
+Retrieve Token: const token = localStorage.getItem(‘authToken’); const
+expiry = localStorage.getItem(‘tokenExpiry’);
+
+Check Validity: const isValid = token && Date.now() < parseInt(expiry);
+
+Update Token (After Refresh): localStorage.setItem(‘authToken’,
+newToken); localStorage.setItem(‘refreshToken’, newRefreshToken);
+localStorage.setItem(‘tokenExpiry’, Date.now() + expiresIn * 1000);
+
+Clear Token (On Logout): localStorage.removeItem(‘authToken’);
+localStorage.removeItem(‘refreshToken’);
+localStorage.removeItem(‘tokenExpiry’);
+localStorage.removeItem(‘customerId’);
+localStorage.removeItem(‘userRole’); // Keep: theme, language
+preferences
+
+Clear All Session Data: localStorage.clear(); sessionStorage.clear();
+
+Storage Encryption (Optional Advanced):
+──────────────────────────────────────
+
+For sensitive environments:
+
+Encrypt Before Store: const encryptedToken = encrypt(token, deviceKey);
+localStorage.setItem(‘authToken’, encryptedToken);
+
+Decrypt On Retrieve: const encryptedToken =
+localStorage.getItem(‘authToken’); const token = decrypt(encryptedToken,
+deviceKey);
+
+Benefits: ├─ Protection against local access ├─ Additional XSS
+mitigation └─ Compliance with security standards
+
+Drawbacks: ├─ Performance overhead ├─ Key management complexity └─ May
+not prevent determined attacks
+
+Storage Quota Management: ────────────────────────
+
+localStorage Limit: ~5-10MB (browser dependent)
+
+Monitor Usage: const used = new Blob(Object.values(localStorage)).size;
+const limit = 5 * 1024 * 1024; // 5MB const percentage = (used /
+limit) * 100;
+
+IF percentage > 80: // Clean up old data cleanupOldSessions();
+
+Cleanup Strategy: ├─ Remove expired tokens ├─ Remove old session data ├─
+Keep only essential preferences └─ Log if storage quota exceeded
+
+Error Handling: ──────────────
+
+Storage Unavailable: try { localStorage.setItem(‘test’, ‘test’);
+localStorage.removeItem(‘test’); } catch (e) { // localStorage not
+available // Fallback: Use in-memory storage useInMemoryStorage(); }
+
+Quota Exceeded: try { localStorage.setItem(‘authToken’, token); } catch
+(e) { IF e.name === ‘QuotaExceededError’: // Clear old data
+cleanupLocalStorage(); // Retry localStorage.setItem(‘authToken’,
+token); }
+
+Privacy Mode: Browser in private/incognito mode: ├─ localStorage: Works
+but cleared on close ├─ Handle: Session-only tokens └─ Inform: User
+about session limitation
+
+Token Refresh Flow with Storage: ────────────────────────────────
+
+1.  Check Token Validity: const token =
+    localStorage.getItem(‘authToken’); const expiry =
+    parseInt(localStorage.getItem(‘tokenExpiry’));
+
+IF (!token || Date.now() >= expiry): refreshToken();
+
+2.  Refresh Token: const refreshToken =
+    localStorage.getItem(‘refreshToken’); const response = await
+    api.post(‘/auth/refresh’, { refreshToken });
+
+3.  Update Storage: localStorage.setItem(‘authToken’,
+    response.data.token); localStorage.setItem(‘refreshToken’,
+    response.data.refreshToken); localStorage.setItem(‘tokenExpiry’,
+    Date.now() + response.data.expiresIn * 1000);
+
+4.  Continue: Use new token for API calls
+
+Cross-Domain Considerations: ──────────────────────────
+
+Scenario: app.bankmate.com vs api.bankmate.com
+
+LocalStorage: ├─ Scoped: To origin (app.bankmate.com) ├─ Cannot access:
+api.bankmate.com storage └─ Solution: Token passed in headers, not
+shared storage
+
+Cookies (Alternative): ├─ Can be: Domain-scoped (*.bankmate.com) ├─
+Accessible: Across subdomains └─ Requires: Proper cookie attributes
+
+Security Best Practices: ───────────────────────
+
+DO: ✅ Store minimal sensitive data ✅ Clear tokens on logout ✅
+Validate token before use ✅ Implement token refresh ✅ Monitor storage
+quota ✅ Log storage errors ✅ Encrypt if required by policy
+
+DON’T: ❌ Store passwords (hashed or plain) ❌ Store credit card info ❌
+Store sensitive personal data ❌ Log token contents ❌ Transmit tokens
+in URL ❌ Share tokens across origins ❌ Store tokens indefinitely 4.2.3
+SESSION EXPIRY TypeScript
+
+SESSION EXPIRY SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Expiry Durations: ────────────────
+
+Default Session (No “Remember Me”): ├─ Access Token: 24 hours ├─ Refresh
+Token: 30 days ├─ Session Type: Standard └─ Auto-logout: After
+inactivity (30 minutes)
+
+Extended Session (“Remember Me” Enabled): ├─ Access Token: 30 days ├─
+Refresh Token: 90 days ├─ Session Type: Extended └─ Auto-logout: After
+inactivity (24 hours)
+
+Temporary Session (OTP verification in progress): ├─ Access Token: 5
+minutes ├─ Refresh Token: N/A ├─ Session Type: Temporary └─ Auto-logout:
+After OTP verification or expiry
+
+Expiry Calculation: ──────────────────
+
+On Login: expiresIn = 86400; // seconds (24 hours) expiryTimestamp =
+Date.now() + (expiresIn * 1000); localStorage.setItem(‘tokenExpiry’,
+expiryTimestamp);
+
+Check Expiry: const expiry =
+parseInt(localStorage.getItem(‘tokenExpiry’)); const now = Date.now();
+const isExpired = now >= expiry;
+
+Time Until Expiry: const timeRemaining = expiry - Date.now(); const
+minutesRemaining = Math.floor(timeRemaining / 60000);
+
+Inactivity Timeout: ──────────────────
+
+Track User Activity: lastActivity = Date.now();
+
+On User Interaction (mouse, keyboard, scroll): updateLastActivity();
+
+Function updateLastActivity: lastActivity = Date.now();
+localStorage.setItem(‘lastActivity’, lastActivity);
+
+Check Inactivity: setInterval(() => { const lastActivity =
+parseInt(localStorage.getItem(‘lastActivity’)); const inactivityDuration
+= Date.now() - lastActivity; const inactivityLimit = 30 * 60 * 1000; //
+30 minutes
+
+IF inactivityDuration >= inactivityLimit: showInactivityWarning(); },
+60000); // Check every minute
+
+Inactivity Warning: ──────────────────
+
+Warning Before Logout: ├─ Show: 2 minutes before auto-logout ├─ Modal:
+“You’ll be logged out in 2 minutes due to inactivity” ├─ Actions: “Stay
+Logged In” or “Logout” └─ Countdown: Real-time countdown
+
+Modal Display: ┌──────────────────────────────────┐ │ ⏱️ Inactivity
+Warning │ ├──────────────────────────────────┤ │ You’ll be logged out
+in: │ │ │ │ 01:45 │ │ (MM:SS) │ │ │ │ [Stay Logged In] [Logout Now] │
+└──────────────────────────────────┘
+
+If “Stay Logged In” clicked: ├─ Reset: lastActivity to current time ├─
+Refresh: Token (optional) ├─ Close: Modal └─ Continue: Session
+
+If no action (countdown reaches 0): ├─ Auto-logout: Execute ├─ Show:
+“Logged out due to inactivity” └─ Redirect: To login with message
+
+Session Extension: ─────────────────
+
+Automatic Extension (On Activity): IF user active AND token expiring
+soon: refreshToken(); extendSession();
+
+Manual Extension (Stay Logged In): On user clicks “Stay Logged In”:
+refreshToken(); resetInactivityTimer();
+
+Extend Session Function: 1. Refresh access token 2. Update expiry
+timestamp 3. Reset lastActivity 4. Log session extension
+
+Session Expiry States: ─────────────────────
+
+States: ├─ ACTIVE: Token valid, user active ├─ IDLE: Token valid, user
+inactive ├─ EXPIRING_SOON: < 5 minutes until token expiry ├─ WARNING: <
+2 minutes until inactivity logout ├─ EXPIRED: Token expired └─
+TERMINATED: Session forcefully terminated
+
+Transitions: ACTIVE → IDLE (no activity for X minutes) IDLE → ACTIVE
+(user interaction) ACTIVE → EXPIRING_SOON (token nearing expiry)
+EXPIRING_SOON → ACTIVE (token refreshed) IDLE → WARNING (nearing
+inactivity timeout) WARNING → ACTIVE (user clicks stay logged in)
+WARNING → TERMINATED (countdown reaches 0) EXPIRED → TERMINATED (token
+expired, refresh failed)
+
+Expiry Notifications: ────────────────────
+
+Token Expiry Soon: ├─ Trigger: 5 minutes before expiry ├─ Type: Silent
+background refresh ├─ User sees: Nothing (seamless) └─ Fallback: If
+refresh fails, show re-login prompt
+
+Inactivity Warning: ├─ Trigger: 2 minutes before auto-logout ├─ Type:
+Modal with countdown ├─ User sees: Warning modal └─ Actions: Stay logged
+in or logout
+
+Session Expired: ├─ Trigger: Token expired, refresh failed ├─ Type:
+Full-screen overlay or redirect ├─ User sees: “Session expired, please
+log in” └─ Action: Redirect to login
+
+Display: ┌──────────────────────────────────┐ │ 🔒 Session Expired │ │ │
+│ Your session has expired for │ │ security reasons. │ │ │ │ Please log
+in again to continue. │ │ │ │ [Login] [Close] │
+└──────────────────────────────────┘
+
+Forced Logout Reasons: ─────────────────────
+
+Reasons for Forced Logout: ├─ Token expired (no valid refresh token) ├─
+Inactivity timeout reached ├─ Password changed (in another session) ├─
+Account suspended (admin action) ├─ Suspicious activity detected ├─
+Manual logout from another device └─ Server-side session invalidation
+
+Handling: On any forced logout: 1. Clear all tokens from storage 2.
+Reset auth state 3. Show reason (if not security-sensitive) 4. Redirect
+to login 5. Preserve returnUrl (to return after login) 6. Log event to
+analytics
+
+Multi-Device Session Management: ────────────────────────────────
+
+Scenario: User logged in on multiple devices
+
+Option 1: Allow Multiple Sessions ├─ Each device: Separate session ├─
+Each has: Own tokens ├─ Logout one: Doesn’t affect others └─ Backend:
+Tracks all sessions per user
+
+Option 2: Single Session (Strict) ├─ Login on new device: Invalidates
+previous ├─ Previous device: Forcefully logged out ├─ Show: “Logged in
+from another device” └─ Backend: Maintains single active session
+
+Option 3: Limited Sessions (Recommended) ├─ Max sessions: 3-5 per user
+├─ Oldest session: Invalidated if limit exceeded ├─ User can: View and
+revoke sessions └─ Backend: Tracks sessions with metadata
+
+Session List (User Settings): ┌──────────────────────────────────┐ │
+Active Sessions │ ├──────────────────────────────────┤ │ ● This Device
+(Current) │ │ Chrome, Windows 11 │ │ Last active: Just now │ │ │ │ ○
+iPhone 14 Pro │ │ Safari, iOS 17 │ │ Last active: 2 hours ago │ │
+[Revoke] │ │ │ │ ○ iPad Pro │ │ Safari, iPadOS 17 │ │ Last active:
+Yesterday │ │ [Revoke] │ └──────────────────────────────────┘
+
+Revoke Session: API: DELETE /auth/sessions/{sessionId} Action:
+Invalidate tokens for that session Result: Device is logged out
+
+Session Persistence: ───────────────────
+
+Across Browser Restarts: IF rememberMe === true: Tokens persist in
+localStorage User remains logged in ELSE: Optional: Clear tokens on
+browser close User must log in again
+
+Across Tab Closes: Tokens persist (localStorage) User remains logged in
+in other tabs
+
+On App Update: Check token validity on new version load If invalid:
+Refresh or re-login
+
+Analytics: ─────────
+
+Track Events: ├─ session_started ├─ session_extended (token refreshed)
+├─ session_expiring_soon (warning shown) ├─ session_inactivity_warning
+(modal shown) ├─ session_stayed_logged_in (user action) ├─
+session_expired_auto_logout ├─ session_expired_forced_logout (with
+reason) └─ session_revoked_remote (from another device)
+
+Track Properties: ├─ session_duration: Total session time ├─
+inactivity_duration: Time inactive ├─ device_type: Device used ├─
+token_refresh_count: Times refreshed └─ logout_reason: Why session ended
+⏸️ PROGRESS UPDATE Due to response length limitations, I’ll continue
+Section 4 in the next response.
+
+Current Progress:
+
+✅ 4.1 Authentication Architecture (Complete: Login, Registration, OTP,
+Forgot Password, Reset Password) ✅ 4.2 Session Management (Complete:
+JWT Lifecycle, Token Storage, Session Expiry) Remaining:
+
+[1] ^
+
+[2] 6-9

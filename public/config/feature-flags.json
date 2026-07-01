@@ -1,0 +1,7 @@
+{
+  "voice_agent": true,
+  "voice_campaigns": true,
+  "financial_goals": true,
+  "deep_linking": true,
+  "offline_mode": false
+}

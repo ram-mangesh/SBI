@@ -1,0 +1,82 @@
+/* [project]/styles/scroll-animations.css [app-client] (css) */
+.reveal {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition: opacity .65s cubic-bezier(.16, 1, .3, 1), transform .65s cubic-bezier(.16, 1, .3, 1);
+  transform: translateY(36px);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-left {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition: opacity .65s cubic-bezier(.16, 1, .3, 1), transform .65s cubic-bezier(.16, 1, .3, 1);
+  transform: translateX(-40px);
+}
+
+.reveal-left.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.reveal-right {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition: opacity .65s cubic-bezier(.16, 1, .3, 1), transform .65s cubic-bezier(.16, 1, .3, 1);
+  transform: translateX(40px);
+}
+
+.reveal-right.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.reveal-scale {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition: opacity .55s cubic-bezier(.16, 1, .3, 1), transform .55s cubic-bezier(.16, 1, .3, 1);
+  transform: scale(.92);
+}
+
+.reveal-scale.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.reveal-d1, .reveal-left.reveal-d1, .reveal-right.reveal-d1, .reveal-scale.reveal-d1 {
+  transition-delay: 80ms;
+}
+
+.reveal-d2, .reveal-left.reveal-d2, .reveal-right.reveal-d2, .reveal-scale.reveal-d2 {
+  transition-delay: .16s;
+}
+
+.reveal-d3, .reveal-left.reveal-d3, .reveal-right.reveal-d3, .reveal-scale.reveal-d3 {
+  transition-delay: .24s;
+}
+
+.reveal-d4, .reveal-left.reveal-d4, .reveal-right.reveal-d4, .reveal-scale.reveal-d4 {
+  transition-delay: .32s;
+}
+
+.reveal-d5, .reveal-left.reveal-d5, .reveal-right.reveal-d5, .reveal-scale.reveal-d5 {
+  transition-delay: .4s;
+}
+
+.reveal-d6, .reveal-left.reveal-d6, .reveal-right.reveal-d6, .reveal-scale.reveal-d6 {
+  transition-delay: .48s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-left, .reveal-right, .reveal-scale {
+    opacity: 1;
+    transition: none;
+    transform: none;
+  }
+}
+
+/*# sourceMappingURL=styles_scroll-animations_css_bad6b30c._.single.css.map*/

@@ -1,0 +1,967 @@
+SECTION 3: LAYOUT ARCHITECTURE 📋 SECTION METADATA text
+
+Section: 3 - Layout Architecture Version: 1.0.0 Status: DRAFT - PENDING
+APPROVAL Dependencies: Section 1 (Project Structure), Section 2
+(Routing) Extends: Existing BankMate AI Backend Architecture
+Modifications: NONE to existing backend/business logic 🎯 SECTION
+OVERVIEW This section defines the complete layout architecture for the
+BankMate AI frontend application. All layouts are designed to support
+the existing routing structure and backend API integration defined in
+previous sections. No business logic or backend architecture is
+modified.
+
+3.1 COMPLETE LAYOUT ARCHITECTURE Layout System Overview text
+
+LAYOUT HIERARCHY
+════════════════════════════════════════════════════════════════
+
+Root Layout (App Shell) ├── Blank Layout (Minimal, no navigation) ├──
+Auth Layout (Login/Register pages) ├── Customer Layout (Main customer
+interface) ├── Admin Layout (Admin dashboard interface) ├── Relationship
+Manager Layout (RM interface) ├── Onboarding Layout (Multi-step wizard)
+├── Chat Layout (Full-screen chat interface) └── Error Layout (Error
+pages) 3.1.1 ROOT LAYOUT TypeScript
+
+ROOT LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Top-level application shell, wraps all other layouts
+
+Components: ──────────
+
+Root Container ├── Global Providers │ ├── AuthProvider (from Section 2)
+│ ├── ThemeProvider │ ├── I18nProvider │ ├── ToastProvider │ └──
+ApiProvider ├── Global Modals Portal ├── Global Toast Container ├──
+Global Loading Overlay └── Child Layout (dynamic based on route)
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │ Root
+Container │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ Global
+Providers │ │ │ │
+┌─────────────────────────────────────────────────────┐ │ │ │ │ │ Child
+Layout (Blank|Auth|Customer|Admin|RM|etc) │ │ │ │ │ │ │ │ │ │ │ │ │ │ │
+│ │ │ │ │ │ │ │ │ │ │ │ │ │
+└─────────────────────────────────────────────────────┘ │ │ │
+└─────────────────────────────────────────────────────────┘ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ Global
+Modals Portal (z-index: 9999) │ │ │
+└─────────────────────────────────────────────────────────┘ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ Global
+Toast Container (z-index: 10000) │ │ │
+└─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+Responsibilities: ────────────────
+
+✅ Initialize global state ✅ Setup axios interceptors ✅ Load initial
+configuration ✅ Handle global keyboard shortcuts ✅ Manage global
+modals ✅ Display global toasts/notifications ✅ Handle global loading
+states ✅ Setup error boundaries ✅ Initialize analytics ✅ Setup
+service worker
+
+Global State Initialization: ───────────────────────────
+
+On Mount: 1. Check authentication (localStorage token) 2. Load user
+profile (if authenticated) 3. Load feature flags (from backend/config)
+4. Load theme preference (localStorage) 5. Load language preference
+(localStorage) 6. Initialize analytics 7. Setup global event listeners
+8. Register service worker (if PWA)
+
+API Interceptor Setup: ─────────────────────
+
+Request Interceptor: ├─ Add Authorization header (if token exists) ├─
+Add X-Request-ID (unique per request) ├─ Add X-Customer-ID (if customer
+logged in) ├─ Add Accept-Language header └─ Log request (debug mode)
+
+Response Interceptor: ├─ Handle 401 (refresh token or logout) ├─ Handle
+403 (redirect to forbidden page) ├─ Handle 500 (show error toast) ├─
+Handle network errors (show offline message) └─ Log response (debug
+mode)
+
+Global Keyboard Shortcuts: ─────────────────────────
+
+Ctrl/Cmd + K → Open search Ctrl/Cmd + / → Open keyboard shortcuts help
+Ctrl/Cmd + B → Toggle sidebar Esc → Close modal/drawer Alt + H → Go to
+home/dashboard Alt + N → Open notifications Alt + C → Open chat
+
+Z-Index Management: ──────────────────
+
+Base Content: 1 Sticky Header: 100 Sidebar: 200 Dropdowns: 500 Modals:
+1000 Global Modals: 9999 Toast Notifications: 10000 Loading Overlay:
+9998 3.1.2 BLANK LAYOUT TypeScript
+
+BLANK LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Minimal layout with no navigation, used for landing pages and
+errors
+
+Used By: ───────
+
+✅ / (Landing Page) ✅ /about ✅ /products (public view) ✅ /help ✅
+/terms ✅ /privacy ✅ /404 (Not Found) ✅ /403 (Forbidden) ✅ /500
+(Server Error) ✅ /offline
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │ Blank
+Layout │ │ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │
+Optional Header (logo only, no navigation) │ │ │
+└─────────────────────────────────────────────────────────┘ │ │ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ │ │ │
+│ │ │ │ │ Page Content (full width) │ │ │ │ │ │ │ │ │ │ │
+└─────────────────────────────────────────────────────────┘ │ │ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │
+Optional Footer (copyright, links) │ │ │
+└─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+Components: ──────────
+
+Optional Header: ├─ Logo (clickable, links to /) ├─ Login/Register
+buttons (if not authenticated) └─ No navigation menu
+
+Content Area: ├─ Full viewport width ├─ Centered container (max-width:
+1200px) ├─ Vertical padding: 2rem └─ Background: Brand gradient or solid
+color
+
+Optional Footer: ├─ Copyright notice ├─ Legal links (Terms, Privacy) ├─
+Help/Support link └─ Social media icons
+
+Variants: ────────
+
+Landing Page Variant: ├─ Full-screen hero section ├─ Feature sections ├─
+CTA buttons └─ Marketing footer
+
+Error Page Variant: ├─ Centered error illustration ├─ Error code and
+message ├─ Action buttons (Go Home, Retry) └─ Minimal footer
+
+Responsive Behavior: ───────────────────
+
+Mobile (< 768px): ├─ Full-width content ├─ Stacked sections └─
+Simplified header/footer
+
+Tablet (768px - 1024px): ├─ Max-width: 90% └─ Standard padding
+
+Desktop (> 1024px): ├─ Max-width: 1200px └─ Centered layout 3.1.3 AUTH
+LAYOUT TypeScript
+
+AUTH LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Layout for authentication pages (login, register, OTP)
+
+Used By: ───────
+
+✅ /auth/login ✅ /auth/register ✅ /auth/otp-verify ✅
+/auth/forgot-password ✅ /auth/reset-password/:token
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │ Auth
+Layout │ │ │ │ ┌─────────────┐ ┌───────────────────────────────────┐ │ │
+│ │ │ │ │ │ │ │ │ │ │ │ │ Brand │ │ Auth Form Container │ │ │ │ Section
+│ │ │ │ │ │ │ │ ┌─────────────────────────┐ │ │ │ │ │ │ │ │ │ │ │ │
+(50%) │ │ │ Login/Register │ │ │ │ │ │ │ │ Form │ │ │ │ │ │ │ │ │ │ │ │
+│ │ │ └─────────────────────────┘ │ │ │ │ │ │ │ │ │ │ │ │ (50%) │ │ │ │
+│ │ │ │ │ └─────────────┘ └───────────────────────────────────┘ │ │ │
+└─────────────────────────────────────────────────────────────┘
+
+Left Section (Brand Area): ─────────────────────────
+
+Background: Primary gradient Content: ├─ BankMate AI logo (large) ├─
+Tagline: “Intelligent Banking Platform” ├─ Illustration (AI/Banking
+themed) ├─ Feature highlights (rotating) │ ├─ “AI-Powered
+Recommendations” │ ├─ “Instant Life Event Detection” │ └─ “Personalized
+Financial Advice” └─ Testimonials (optional)
+
+Right Section (Form Area): ─────────────────────────
+
+Background: White/Light Content: ├─ Header │ ├─ Page title (e.g.,
+“Welcome Back”) │ ├─ Subtitle/description │ └─ Language selector
+(optional) ├─ Auth Form (dynamic based on route) │ ├─ Input fields │ ├─
+Validation messages │ ├─ Submit button │ ├─ Loading state │ └─ Error
+messages ├─ Divider ├─ Social login options (if enabled) │ ├─ Google │
+└─ Facebook ├─ Footer links │ ├─ “Don’t have an account? Register” │ ├─
+“Forgot password?” │ └─ “Need help? Contact support” └─ Legal links
+(Terms, Privacy)
+
+Form Variants: ─────────────
+
+Login Form: ├─ Email/Phone input ├─ Password input ├─ Remember me
+checkbox ├─ Login button └─ Forgot password link
+
+Register Form: ├─ First name, Last name ├─ Email, Phone ├─ Password,
+Confirm password ├─ Terms acceptance checkbox ├─ Register button └─
+Already have account? Login link
+
+OTP Form: ├─ OTP input (6 digits) ├─ Resend OTP button (with timer) ├─
+Verify button └─ Back to login link
+
+Forgot Password Form: ├─ Email/Phone input ├─ Send reset link button └─
+Back to login link
+
+Reset Password Form: ├─ New password input ├─ Confirm password input ├─
+Reset button └─ Back to login link
+
+Responsive Behavior: ───────────────────
+
+Desktop (> 1024px): ├─ Two-column layout (50-50 split) ├─ Fixed height
+(100vh) └─ No scrolling
+
+Tablet (768px - 1024px): ├─ Two-column layout (40-60 split) ├─
+Scrollable if content overflows └─ Reduced brand area
+
+Mobile (< 768px): ├─ Single column ├─ Brand section hidden (or minimal
+header) ├─ Full-width form ├─ Scrollable └─ Logo shown in form header
+
+Loading States: ──────────────
+
+Form Submission: ├─ Disable all inputs ├─ Show spinner in submit button
+├─ Change button text: “Logging in…” / “Creating account…” └─ Dim form
+content
+
+OTP Verification: ├─ Auto-focus OTP input ├─ Auto-submit on complete (6
+digits) ├─ Show loading overlay └─ Redirect on success
+
+Security Features: ─────────────────
+
+✅ HTTPS only (enforced) ✅ CSRF protection ✅ Rate limiting (frontend +
+backend) ✅ Password strength indicator ✅ Captcha (if suspicious
+activity) ✅ Session timeout warning ✅ Secure token storage (httpOnly
+cookie or encrypted localStorage) 3.1.4 CUSTOMER LAYOUT TypeScript
+
+CUSTOMER LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Main layout for authenticated customers
+
+Used By: ───────
+
+✅ All /customer/* routes (except /customer/onboarding) ✅ /chat/*
+routes
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │
+Customer Layout │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ Header
+(sticky) │ │ │ │ Logo | Search | Notifications | Voice | Profile │ │ │
+└─────────────────────────────────────────────────────────┘ │ │ │ │
+┌─────┬───────────────────────────────────────────────────┐ │ │ │ │ │ │
+│ │ S │ │ │ │ │ i │ │ │ │ │ d │ Main Content Area │ │ │ │ e │ (dynamic
+based on route) │ │ │ │ b │ │ │ │ │ a │ │ │ │ │ r │ │ │ │ │ │ │ │ │ │ │
+│ │ │ └─────┴───────────────────────────────────────────────────┘ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ Footer
+(optional, minimal) │ │ │
+└─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+Grid Dimensions: ───────────────
+
+Header: ├─ Height: 64px (desktop), 56px (mobile) ├─ Position: sticky
+top-0 ├─ Z-index: 100 └─ Background: White with shadow
+
+Sidebar: ├─ Width: 280px (expanded), 64px (collapsed) ├─ Position: fixed
+left-0 ├─ Z-index: 200 ├─ Background: White with border └─ Transition:
+width 300ms ease
+
+Main Content: ├─ Margin-left: 280px (sidebar expanded), 64px (collapsed)
+├─ Margin-top: 64px (header height) ├─ Padding: 24px ├─ Min-height:
+calc(100vh - 64px - footer) └─ Background: Light gray (#F7F9FC)
+
+Footer: ├─ Height: auto (minimal content) ├─ Margin-left: Same as main
+content ├─ Background: White └─ Padding: 16px 24px
+
+Responsive Grid: ───────────────
+
+Desktop (> 1024px): ├─ Sidebar: 280px (expanded by default) ├─ Content:
+calc(100vw - 280px) └─ Footer: Visible
+
+Tablet (768px - 1024px): ├─ Sidebar: 64px (collapsed by default) ├─
+Content: calc(100vw - 64px) └─ Footer: Visible
+
+Mobile (< 768px): ├─ Sidebar: Hidden (drawer overlay) ├─ Content: 100vw
+├─ Bottom Navigation: 60px height └─ Footer: Hidden
+
+Content Container: ─────────────────
+
+Max Width: 1440px Padding: 24px (desktop), 16px (mobile) Background:
+Transparent Margin: 0 auto
+
+Scrollable Areas: ────────────────
+
+Header: Fixed, no scroll Sidebar: Scrollable (if content overflows) Main
+Content: Scrollable (overflow-y: auto) Footer: Fixed at bottom (if
+visible)
+
+Life Event Banner: ─────────────────
+
+When life event detected: ├─ Display below header ├─ Full-width banner
+├─ Background: Gradient (pink-purple) ├─ Height: auto (min 80px) ├─
+Dismissible (X button) ├─ Z-index: 90 (below header) └─ Slide-in
+animation from top
+
+Structure:
+┌─────────────────────────────────────────────────────────────┐ │ 🎉
+MARRIAGE Detected! (92% confidence) ✕ │ │ We have 3 personalized offers
+for you │ │ [View Recommendations] button │
+└─────────────────────────────────────────────────────────────┘
+
+Page Title Area: ───────────────
+
+Below header (or life event banner if present): ├─ Page title (h1) ├─
+Breadcrumb navigation ├─ Quick actions (buttons) └─ Filters/search (if
+applicable)
+
+Example: ┌─────────────────────────────────────────────────────────────┐
+│ Dashboard > Products │ │ │ │ Products [+ Apply for Product] │ │ Browse
+our product catalog [🔍 Search] [Filter] │
+└─────────────────────────────────────────────────────────────┘ 3.1.5
+ADMIN LAYOUT TypeScript
+
+ADMIN LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Layout for admin dashboard and management interfaces
+
+Used By: ───────
+
+✅ All /admin/* routes
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │ Admin
+Layout │ │ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Admin Header │ │ │ │ Logo | Search | Monitoring | Alerts | Admin
+Profile │ │ │
+└─────────────────────────────────────────────────────────┘ │ │ │ │
+┌─────┬───────────────────────────────────────────────────┐ │ │ │ │ │ │
+│ │ A │ │ │ │ │ d │ Admin Content Area │ │ │ │ m │ (dashboards, tables,
+forms) │ │ │ │ i │ │ │ │ │ n │ │ │ │ │ │ │ │ │ │ S │ │ │ │ │ i │ │ │ │ │
+d │ │ │ │ │ e │ │ │ │
+└─────┴───────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+Differences from Customer Layout: ─────────────────────────────────
+
+Header: ├─ Admin-specific actions │ ├─ System monitoring indicator │ ├─
+Error alerts count │ ├─ Real-time metrics │ └─ Config reload button ├─
+Admin profile (different menu items) └─ Dark theme toggle (admin
+preference)
+
+Sidebar: ├─ Admin navigation items ├─ Collapsible sections │ ├─
+Dashboard │ ├─ Customer Management │ ├─ Product Management │ ├─
+Configuration (expandable) │ ├─ Campaigns │ ├─ Analytics (expandable) │
+├─ Monitoring (expandable) │ └─ Reports ├─ Active/inactive status
+indicators └─ Quick stats in sidebar
+
+Content Area: ├─ Wider tables (more columns) ├─ Dense data displays ├─
+Multiple chart views ├─ Split-screen views (list + detail) └─ Advanced
+filtering panels
+
+Background: ├─ Darker theme option ├─ Less colorful (more professional)
+└─ Focus on data, not aesthetics
+
+Admin Header Extensions: ───────────────────────
+
+System Health Indicator: ┌──────────────────────┐ │ ● System: Healthy │
+│ ↓ API: 120ms │ │ ▓ DB: 95% capacity │ │ ⚠ Errors: 3 (24h) │
+└──────────────────────┘
+
+Quick Actions: ├─ Reload Config button (instant) ├─ View Logs button ├─
+System Status button └─ Generate Report button
+
+Alerts Badge: ├─ Shows count of system alerts ├─ Red if critical errors
+├─ Yellow if warnings └─ Clickable to view alert details
+
+Admin Sidebar Sections: ──────────────────────
+
+Dashboard Section: ├─ Overview └─ Real-time Metrics
+
+Management Section: ├─ Customers │ ├─ All Customers │ ├─ Recent │ └─
+Flagged ├─ Products │ ├─ All Products │ ├─ Active │ └─ Draft └─
+Campaigns
+
+Configuration Section (Expandable): ├─ Customer Types ├─ Life Events ├─
+Products ├─ AI Agents └─ Voice Campaigns
+
+Analytics Section (Expandable): ├─ Dashboard ├─ Customer Analytics ├─
+Product Analytics ├─ Revenue Analytics └─ Conversion Analytics
+
+Monitoring Section (Expandable): ├─ System Status ├─ Logs ├─ Performance
+└─ Errors
+
+Reports: ├─ All Reports └─ Generate New
+
+Settings: └─ System Configuration
+
+Sidebar Quick Stats: ───────────────────
+
+┌─────────────────────┐ │ Quick Stats │ ├─────────────────────┤ │ Active
+Users: 1,250 │ │ New Today: 45 │ │ Applications: 28 │ │ Conversions: 12
+│ └─────────────────────┘
+
+Admin Content Layouts: ─────────────────────
+
+Dashboard View: ├─ KPI cards grid (4 columns) ├─ Charts row (2-3 charts)
+├─ Tables section └─ Recent activity feed
+
+List View (Customers/Products): ├─ Filter panel (left or top) ├─ Data
+table (sortable, paginated) ├─ Bulk actions toolbar └─ Quick view panel
+(right)
+
+Detail View: ├─ Header with key info ├─ Tabs for different sections ├─
+Edit/Delete actions └─ Audit log (bottom)
+
+Configuration View: ├─ Left navigation (config sections) ├─ Main editor
+area ├─ Preview panel (right) └─ Save/Cancel actions
+
+Split View: ┌─────────────────────┬─────────────────────┐ │ │ │ │ Master
+List │ Detail Panel │ │ (Customers) │ (Selected Item) │ │ │ │
+└─────────────────────┴─────────────────────┘
+
+Permissions Display: ───────────────────
+
+Admin Role Badge: ├─ Always visible in header ├─ Shows admin level
+(Super Admin, Admin, etc.) └─ Click to view permissions
+
+Audit Trail: ├─ Show on all admin actions ├─ “Last modified by [Admin
+Name] on [Date]” └─ View full audit log link 3.1.6 RELATIONSHIP MANAGER
+LAYOUT TypeScript
+
+RELATIONSHIP MANAGER LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Layout for Relationship Managers to manage customers and leads
+
+Used By: ───────
+
+✅ All /rm/* routes
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │ RM
+Layout │ │ ┌─────────────────────────────────────────────────────────┐ │
+│ │ RM Header │ │ │ │ Logo | Tasks | Calendar | Targets | RM Profile │ │
+│ └─────────────────────────────────────────────────────────┘ │ │ │ │
+┌─────┬───────────────────────────────────────────────────┐ │ │ │ RM │ │
+│ │ │ Sid │ RM Content Area │ │ │ │ ebar│ (customers, leads, tasks,
+calendar) │ │ │ │ │ │ │ │
+└─────┴───────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+Similar to Customer Layout but optimized for RM workflows
+
+Header Extensions: ─────────────────
+
+Task Counter: ┌──────────────┐ │ Tasks: 12 │ │ Due: 3 │ │ Overdue: 1 │
+└──────────────┘
+
+Quick Calendar View: ┌─────────────────────┐ │ Today’s Appointments│ │
+10:00 - Client A │ │ 14:00 - Client B │ │ 16:00 - Review │
+└─────────────────────┘
+
+Target Progress: ┌─────────────────────┐ │ Monthly Target │ │
+███████░░░░ 70% │ │ ₹7L / ₹10L │ └─────────────────────┘
+
+Sidebar Navigation: ──────────────────
+
+Dashboard: └─ My Performance
+
+Customers: ├─ My Customers ├─ Assigned Today └─ High Value
+
+Leads: ├─ All Leads ├─ New Leads ├─ Hot Leads └─ Converted
+
+Tasks: ├─ All Tasks ├─ Today ├─ Overdue └─ Completed
+
+Calendar: ├─ Calendar View ├─ Appointments └─ Follow-ups
+
+Performance: ├─ Dashboard └─ Targets
+
+Content Layouts: ───────────────
+
+Dashboard: ├─ Performance KPIs (cards) ├─ Target progress chart ├─
+Upcoming tasks list ├─ Today’s appointments └─ Recent activity
+
+Customer List: ├─ Filter panel (by type, value, status) ├─ Customer
+cards/table ├─ Quick actions (Call, Email, Assign Task) └─ Customer
+detail panel (right)
+
+Lead Management: ├─ Lead pipeline (Kanban view) ├─ Lead cards
+(drag-drop) ├─ Lead details panel └─ Convert to customer action
+
+Task Management: ├─ Task list (grouped by date) ├─ Task detail panel ├─
+Create task form └─ Mark complete action
+
+Calendar View: ├─ Month/Week/Day view ├─ Appointment list ├─ Create
+appointment └─ Sync with customer interactions
+
+CRM Integration: ───────────────
+
+Customer Card shows: ├─ Customer name, photo ├─ Customer type, risk
+profile ├─ Last interaction date ├─ Pending tasks ├─ Recent applications
+├─ Quick actions │ ├─ Call customer │ ├─ Send email │ ├─ Schedule
+meeting │ └─ Add note └─ Customer journey stage
+
+Mobile Optimizations: ────────────────────
+
+Mobile RM View: ├─ Bottom nav: Dashboard, Customers, Leads, Tasks, More
+├─ Swipeable customer cards ├─ Click-to-call functionality ├─ Quick note
+entry └─ Offline mode (view cached data) 3.1.7 ONBOARDING LAYOUT
+TypeScript
+
+ONBOARDING LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Multi-step wizard layout for customer profile setup
+
+Used By: ───────
+
+✅ /customer/onboarding ✅ /customer/onboarding/:step
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │
+Onboarding Layout │ │ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │
+Header: Logo | Progress Bar | Skip/Logout │ │ │
+└─────────────────────────────────────────────────────────┘ │ │ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ Step
+Indicator (horizontal stepper) │ │ │ │ ●━━━○━━━○━━━○━━━○ │ │ │ │ 1 2 3 4
+5 │ │ │ └─────────────────────────────────────────────────────────┘ │ │
+│ │ ┌─────────────────────────────────────────────────────────┐ │ │ │ │
+│ │ │ │ │ │ │ Step Content (Centered) │ │ │ │ │ │ │ │
+┌───────────────────────────┐ │ │ │ │ │ │ │ │ │ │ │ Step Form/Content │
+│ │ │ │ │ │ │ │ │ │ └───────────────────────────┘ │ │ │ │ │ │ │ │ │ │ │
+└─────────────────────────────────────────────────────────┘ │ │ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │
+Navigation: [← Back] [Skip] [Next →] │ │ │
+└─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+Onboarding Steps: ────────────────
+
+Step 1: Personal Information (20% complete) ├─ Name (pre-filled from
+registration) ├─ Date of Birth ├─ Gender ├─ Marital Status └─ City
+
+Step 2: Employment Information (40% complete) ├─ Employment Type
+(dropdown) ├─ Company Name ├─ Designation ├─ Years of Experience └─
+Monthly Income
+
+Step 3: Financial Information (60% complete) ├─ Existing bank accounts
+(optional) ├─ Credit cards (optional) ├─ Loans (optional) └─ Financial
+goals (multi-select)
+
+Step 4: Preferences (80% complete) ├─ Communication preferences │ ├─
+Email notifications │ ├─ SMS notifications │ ├─ Voice calls │ └─
+WhatsApp ├─ Language preference ├─ Theme preference (Light/Dark) └─
+Marketing consent
+
+Step 5: Verification (100% complete) ├─ Review all information ├─ Terms
+& Conditions acceptance ├─ Privacy Policy acceptance └─ Complete setup
+button
+
+Progress Indicator: ──────────────────
+
+Horizontal Stepper:
+┌─────────────────────────────────────────────────────────────┐ │
+●━━━━●━━━━○━━━━○━━━━○ │ │ Personal Employment Financial Preferences
+Verification │ │ ✓ Complete ✓ Complete Current Pending Pending │
+└─────────────────────────────────────────────────────────────┘
+
+Progress Bar (Linear):
+┌─────────────────────────────────────────────────────────────┐ │ 40%
+Complete │ │ ████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │
+└─────────────────────────────────────────────────────────────┘
+
+Step Content Container: ──────────────────────
+
+Max Width: 600px Centered: Yes Padding: 40px Background: White card
+Shadow: Medium elevation Rounded: Yes (8px)
+
+Step Header: ├─ Step number badge ├─ Step title (h2) ├─ Step description
+(subtitle) └─ Estimated time (e.g., “~2 minutes”)
+
+Step Form: ├─ Form fields (appropriate for step) ├─ Inline validation ├─
+Field help text ├─ Required field indicators └─ Error messages below
+fields
+
+Navigation Buttons: ──────────────────
+
+Back Button: ├─ Enabled: Steps 2-5 ├─ Disabled: Step 1 ├─ Action: Go to
+previous step ├─ Save draft on back
+
+Next Button: ├─ Enabled: When step is valid ├─ Disabled: When validation
+fails ├─ Action: Validate and go to next step ├─ Text changes: │ ├─
+Steps 1-4: “Next” │ └─ Step 5: “Complete Setup”
+
+Skip Button (Optional): ├─ Visible: Steps 3-4 only ├─ Action: Mark step
+as skipped, go to next ├─ Warning: “You can complete this later”
+
+Save Draft: ├─ Auto-save every 30 seconds ├─ Manual save button (top
+right) ├─ Show “Saved” indicator └─ Resume from saved state on return
+
+Exit Confirmation: ─────────────────
+
+IF user tries to leave onboarding:
+┌─────────────────────────────────────────┐ │ Your progress will be
+saved │ │ │ │ You can continue setup anytime from │ │ your dashboard. │
+│ │ │ [Cancel] [Save & Exit] │
+└─────────────────────────────────────────┘
+
+Responsive Behavior: ───────────────────
+
+Desktop: ├─ Horizontal stepper (top) ├─ Centered form (600px max) ├─
+Navigation buttons (bottom)
+
+Tablet: ├─ Slightly smaller form (500px max) ├─ Same structure
+
+Mobile: ├─ Vertical stepper (compact) ├─ Full-width form ├─ Sticky
+navigation (bottom) ├─ Progress bar (top)
+
+Animations: ──────────
+
+Step Transition: ├─ Fade out current step ├─ Slide in next step (from
+right) ├─ Update progress bar (smooth animation) ├─ Duration: 300ms
+
+Validation Success: ├─ Green checkmark animation ├─ Enable Next button
+├─ Brief pulse effect
+
+Validation Error: ├─ Red shake animation ├─ Show error message ├─ Focus
+first error field 3.1.8 CHAT LAYOUT TypeScript
+
+CHAT LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Full-screen chat interface for AI conversations
+
+Used By: ───────
+
+✅ /customer/chat ✅ /chat/conversations/:conversationId ✅
+/chat/agent/:agentType
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │ Chat
+Layout (Full Screen) │ │ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ Chat
+Header │ │ │ │ ← | AI Agent Name | ● Online | …Menu │ │ │
+└─────────────────────────────────────────────────────────┘ │ │ │ │
+┌─────┬───────────────────────────────────────────────────┐ │ │ │Conv │
+│ │ │ │List │ Chat Messages Area │ │ │ │ │ (scrollable) │ │ │ │(25%)│ │
+│ │ │ │ │ │ │ │ │ (75%) │ │ │ │ │ │ │ │
+└─────┴───────────────────────────────────────────────────┘ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │ Chat
+Input Area │ │ │ │ [Type a message…] | 📎 | 😊 | [Send] │ │ │
+└─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+Left Panel (Conversation List): ──────────────────────────────
+
+Width: 25% (desktop), hidden on mobile Background: Light gray
+Scrollable: Yes
+
+Header: ├─ “Conversations” title ├─ New chat button (+) └─ Search
+conversations
+
+Conversation Items: ├─ Agent avatar ├─ Agent name ├─ Last message
+preview ├─ Timestamp ├─ Unread badge (if applicable) └─ Active state
+highlighting
+
+Actions: ├─ Click → Open conversation ├─ Long press → Show options
+(Delete, Archive)
+
+Filter Options: ├─ All conversations ├─ Active ├─ Archived
+
+Main Chat Area (75%): ────────────────────
+
+Chat Header: ├─ Back button (mobile only) ├─ Agent avatar + name ├─
+Agent status (● Online) ├─ Agent type badge (Welcome, Profile, KYC,
+etc.) ├─ Menu button (…) │ ├─ Agent info │ ├─ Clear conversation │ ├─
+Export chat │ └─ Report issue
+
+Messages Area: ├─ Background: White or light pattern ├─ Scrollable:
+Reverse scroll (newest at bottom) ├─ Auto-scroll: To latest message ├─
+Pull-to-refresh: Load older messages
+
+Message Bubble: ──────────────
+
+User Message (Right-aligned): ┌─────────────────────────────────────┐ │
+┌──────────────┐ │ │ │ User message │ │ │ │ text here │ │ │
+└──────────────┘ │ │ 10:30 AM ✓✓ │
+└─────────────────────────────────────┘ ├─ Background: Blue gradient ├─
+Text: White ├─ Alignment: Right ├─ Max width: 70% ├─ Timestamp: Below,
+gray └─ Status: Sent ✓, Delivered ✓✓, Read ✓✓ (blue)
+
+Agent Message (Left-aligned): ┌─────────────────────────────────────┐ │
+┌──────────────┐ │ │ │ Agent reply │ │ │ │ message text │ │ │
+└──────────────┘ │ │ 10:31 AM │ └─────────────────────────────────────┘
+├─ Background: Light gray ├─ Text: Dark gray ├─ Alignment: Left ├─ Max
+width: 70% ├─ Agent avatar (left of bubble) └─ Timestamp: Below, gray
+
+System Message (Center): ┌─────────────────────────────────────┐ │ ───
+Today ─── │ │ Conversation started at 10:30 │
+└─────────────────────────────────────┘ ├─ Text: Small, gray ├─ Centered
+└─ Used for: Date separators, status updates
+
+Message Types: ─────────────
+
+Text Message: ├─ Plain text ├─ Markdown support (bold, italic, links) └─
+Auto-linkify URLs
+
+Rich Message (Agent): ├─ Product card (image, title, CTA button) ├─
+Recommendation card ├─ Form (quick input) └─ Quick reply buttons
+
+Typing Indicator: ┌──────────────┐ │ ●●● typing │ └──────────────┘ ├─
+Shows when agent is typing ├─ Animated dots └─ Left-aligned
+
+Quick Replies (Agent suggestion):
+┌─────────────────────────────────────┐ │ ┌──────────────┐ │ │ │ How can
+I │ │ │ │ help you? │ │ │ └──────────────┘ │ │ ┌──────────┐ ┌──────────┐
+│ │ │ Products │ │ Loans │ │ │ └──────────┘ └──────────┘ │ │
+┌──────────┐ ┌──────────┐ │ │ │ My Profile│ │ Help │ │ │ └──────────┘
+└──────────┘ │ └─────────────────────────────────────┘ ├─ Clickable
+buttons ├─ Send predefined response └─ Disappear after click
+
+Suggested Actions (Agent): ┌─────────────────────────────────────┐ │
+┌──────────────┐ │ │ │ Based on your│ │ │ │ profile, I │ │ │ │
+recommend: │ │ │ └──────────────┘ │ │ ┌────────────────────────────────┐
+│ │ │ 💰 Wedding Loan │ │ │ │ ₹15,000/month | 88% match │ │ │ │ [View
+Details] [Apply Now] │ │ │ └────────────────────────────────┘ │
+└─────────────────────────────────────┘ ├─ Inline product preview ├─
+Action buttons └─ Navigate to product page
+
+Chat Input Area: ───────────────
+
+Fixed at bottom Background: White Border-top: 1px solid gray Padding:
+12px
+
+Input Field: ├─ Multi-line textarea ├─ Placeholder: “Type a message…” ├─
+Auto-resize (max 5 lines) ├─ Shift+Enter: New line ├─ Enter: Send
+message
+
+Action Buttons: ├─ 📎 Attach file (documents, images) ├─ 😊 Emoji picker
+├─ 🎤 Voice message (optional) └─ Send button (enabled when text
+entered)
+
+File Upload: ├─ Drag & drop support ├─ Click to browse ├─ File types:
+Images, PDFs ├─ Max size: 10MB └─ Show preview before send
+
+Emoji Picker: ├─ Popup panel above input ├─ Recent emojis ├─ Categories
+└─ Search
+
+Mobile Chat Layout: ──────────────────
+
+Full screen chat: ├─ No conversation list (separate route) ├─ Back
+button in header ├─ Full-width messages └─ Sticky input at bottom
+
+Conversation List (Mobile): ├─ Separate screen (/chat) ├─ List view
+(full width) ├─ Swipe actions (Delete, Archive) └─ Tap to open
+conversation
+
+Chat Accessibility: ──────────────────
+
+✅ Keyboard navigation (Tab through messages) ✅ Screen reader support
+(message content read aloud) ✅ High contrast mode support ✅ Focus
+indicators on input ✅ Skip to latest message button 3.1.9 ERROR LAYOUT
+TypeScript
+
+ERROR LAYOUT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Consistent error page layout for all error types
+
+Used By: ───────
+
+✅ /404 (Not Found) ✅ /403 (Forbidden) ✅ /500 (Server Error) ✅ /503
+(Maintenance) ✅ /offline (No Connection) ✅ /session-expired
+
+Structure: ─────────
+
+┌─────────────────────────────────────────────────────────────┐ │ Error
+Layout │ │ │ │
+┌─────────────────────────────────────────────────────────┐ │ │ │
+Optional Header (Logo only) │ │ │
+└─────────────────────────────────────────────────────────┘ │ │ │ │
+┌───────────────────────────┐ │ │ │ │ │ │ │ Error Illustration │ │ │ │
+(SVG/Lottie) │ │ │ │ │ │ │ └───────────────────────────┘ │ │ │ │ Error
+Code (Large) │ │ Error Title │ │ Error Description │ │ │ │ ┌──────────┐
+┌──────────┐ │ │ │Primary CTA│ │Secondary│ │ │ └──────────┘ └──────────┘
+│ │ │ │ Additional Help Links │ │ │
+└─────────────────────────────────────────────────────────────┘
+
+Error Page Variants: ───────────────────
+
+404 - Not Found: ├─ Illustration: Lost/searching character ├─ Code: 404
+├─ Title: “Page Not Found” ├─ Description: “The page you’re looking for
+doesn’t exist or has been moved.” ├─ Primary CTA: “Go to Dashboard” ├─
+Secondary CTA: “Go Back” ├─ Help: Suggested pages or search
+
+403 - Forbidden: ├─ Illustration: Locked door/access denied ├─ Code: 403
+├─ Title: “Access Denied” ├─ Description: “You don’t have permission to
+access this page.” ├─ Primary CTA: “Go to Dashboard” ├─ Secondary CTA:
+“Contact Support” ├─ Help: Required permissions explanation
+
+500 - Server Error: ├─ Illustration: Broken robot/server ├─ Code: 500 ├─
+Title: “Something Went Wrong” ├─ Description: “We’re experiencing
+technical difficulties. Please try again.” ├─ Primary CTA: “Retry” ├─
+Secondary CTA: “Go to Dashboard” ├─ Help: “If problem persists, contact
+support”
+
+503 - Maintenance: ├─ Illustration: Tools/maintenance ├─ Code: 503 ├─
+Title: “Under Maintenance” ├─ Description: “We’re performing scheduled
+maintenance. We’ll be back soon.” ├─ ETA: “Expected completion: 2:00 PM”
+├─ Primary CTA: “Check Status” ├─ Help: Support contact info
+
+Offline: ├─ Illustration: Disconnected/no signal ├─ Code: (none) ├─
+Title: “No Internet Connection” ├─ Description: “Please check your
+internet connection and try again.” ├─ Primary CTA: “Retry” ├─ Secondary
+CTA: “View Cached Data” ├─ Help: Connection troubleshooting tips
+
+Session Expired: ├─ Illustration: Clock/timeout ├─ Code: (none) ├─
+Title: “Session Expired” ├─ Description: “Your session has expired for
+security. Please log in again.” ├─ Primary CTA: “Log In” ├─ Help: “Your
+data is safe”
+
+Error Page Styling: ──────────────────
+
+Background: Light gradient or solid Illustration: 200-300px size,
+centered Error Code: 72px font, bold, gray Title: 32px font, bold, dark
+Description: 16px font, regular, gray CTA Buttons: Standard button
+styling Help Text: 14px font, link color
+
+Centered Container: ├─ Max width: 600px ├─ Vertical centering ├─
+Padding: 40px └─ Text-align: center
+
+Responsive Behavior: ───────────────────
+
+Mobile: ├─ Smaller illustration (150px) ├─ Smaller font sizes ├─ Stacked
+buttons (full width) └─ Padding: 24px
+
+Desktop: ├─ Larger illustration (300px) ├─ Standard font sizes ├─ Inline
+buttons └─ Padding: 40px
+
+Error Tracking: ──────────────
+
+All error pages should: ✅ Log error to backend (GET /api/errors/log) ✅
+Include error context (route, user, timestamp) ✅ Track in analytics ✅
+Show error ID (for support reference)
+
+Example Error ID display: ┌─────────────────────────────────────┐ │
+Error ID: ERR-2024-01-20-12345 │ │ Reference this when contacting │ │
+support for faster resolution. │ └─────────────────────────────────────┘
+⏸️ CHECKPOINT - SECTION 3.1 COMPLETE Subsection 3.1: Complete Layout
+Architecture is now documented.
+
+This subsection defines: ✅ Root Layout (App Shell) ✅ Blank Layout
+(Public pages) ✅ Auth Layout (Login/Register) ✅ Customer Layout (Main
+interface) ✅ Admin Layout (Admin dashboard) ✅ RM Layout (Relationship
+Manager) ✅ Onboarding Layout (Multi-step wizard) ✅ Chat Layout (AI
+conversations) ✅ Error Layout (Error pages)
+
+Continuing with Section 3.2: Layout Hierarchy…
+
+3.2 LAYOUT HIERARCHY Complete Nested Layout Tree text
+
+LAYOUT COMPOSITION TREE
+════════════════════════════════════════════════════════════════
+
+Root Layout (Always Present) │ ├─ Blank Layout │ ├─ Landing Page │ ├─
+About Page │ ├─ Help Center │ ├─ Terms & Conditions │ ├─ Privacy Policy
+│ └─ Error Pages │ ├─ 404 Not Found │ ├─ 403 Forbidden │ ├─ 500 Server
+Error │ ├─ 503 Maintenance │ ├─ Offline │ └─ Session Expired │ ├─ Auth
+Layout │ ├─ Login Page │ ├─ Register Page │ ├─ OTP Verification Page │
+├─ Forgot Password Page │ └─ Reset Password Page │ ├─ Customer Layout │
+├─ Customer Dashboard │ ├─ Profile Pages │ │ ├─ View Profile │ │ ├─ Edit
+Profile │ │ └─ Financial Snapshot [KYC Required] │ ├─ Life Events Pages
+│ │ ├─ Life Events List │ │ └─ Life Event Details │ ├─ Recommendations
+Pages │ │ ├─ Recommendations List │ │ ├─ Recommendation Details │ │ └─
+Product Comparison │ ├─ Products Pages │ │ ├─ Product Catalog │ │ ├─
+Product Details │ │ ├─ EMI Calculator │ │ └─ Product Application [KYC
+Required] │ ├─ Applications Pages │ │ ├─ Applications List │ │ ├─
+Application Details │ │ ├─ Application Status │ │ └─ Accept Offer │ ├─
+KYC Pages │ │ ├─ KYC Status │ │ └─ Document Upload │ ├─ Transactions
+Pages │ │ ├─ Transaction List │ │ └─ Transaction Details │ ├─ Goals
+Pages │ │ ├─ Goals List │ │ ├─ Create Goal │ │ ├─ Goal Details │ │ └─
+Edit Goal │ ├─ Voice Pages │ │ ├─ Voice Campaigns │ │ ├─ Call History │
+│ └─ Voice Preferences │ ├─ Notifications Pages │ │ ├─ Notifications
+List │ │ └─ Notification Preferences │ └─ Settings Pages │ ├─ Profile
+Settings │ ├─ Security Settings │ ├─ Notification Settings │ ├─ Language
+Settings │ └─ Theme Settings │ ├─ Chat Layout │ ├─ Chat Page │ ├─
+Conversation Details │ └─ Agent-Specific Chat │ ├─ Welcome Agent │ ├─
+Profile Agent │ ├─ Recommendation Agent │ ├─ Qualification Agent │ ├─
+KYC Agent │ └─ Life Event Agent │ ├─ Onboarding Layout │ └─ Onboarding
+Flow │ ├─ Step 1: Personal Info │ ├─ Step 2: Employment Info │ ├─ Step
+3: Financial Info │ ├─ Step 4: Preferences │ └─ Step 5: Verification │
+├─ Admin Layout │ ├─ Admin Dashboard │ ├─ Customer Management Pages │ │
+├─ Customer List │ │ ├─ Customer Details │ │ └─ Edit Customer │ ├─
+Product Management Pages │ │ ├─ Product List │ │ ├─ Create Product │ │
+├─ Product Details │ │ └─ Edit Product │ ├─ Configuration Pages │ │ ├─
+Customer Types Config │ │ ├─ Life Events Config │ │ ├─ Products Config │
+│ ├─ AI Agents Config │ │ └─ Voice Config │ ├─ Campaign Management Pages
+│ │ ├─ Campaign List │ │ ├─ Create Campaign │ │ ├─ Campaign Details │ │
+└─ Edit Campaign │ ├─ Analytics Pages │ │ ├─ Analytics Dashboard │ │ ├─
+Customer Analytics │ │ ├─ Product Analytics │ │ ├─ Revenue Analytics │ │
+└─ Conversion Analytics │ ├─ Monitoring Pages │ │ ├─ System Status │ │
+├─ System Logs │ │ ├─ Performance Monitor │ │ └─ Error Tracking │ ├─
+Reports Pages │ │ ├─ Reports List │ │ ├─ Generate Report │ │ └─ Report
+Details │ └─ Settings Pages │ └─ System Configuration │ └─ Relationship
+Manager Layout ├─ RM Dashboard ├─ Customer Management Pages │ ├─ My
+Customers │ ├─ Customer Details │ └─ Customer Engagement ├─ Lead
+Management Pages │ ├─ Leads List │ ├─ Lead Details │ └─ Convert Lead ├─
+Task Management Pages │ ├─ Tasks List │ └─ Task Details ├─ Calendar
+Pages │ ├─ Calendar View │ └─ Appointments └─ Performance Pages ├─
+Performance Dashboard └─ Targets Layout Nesting Rules text
+
+LAYOUT INHERITANCE
+════════════════════════════════════════════════════════════════
+
+Root Layout (Level 0) ↓ provides ├─ Global Providers ├─ Global State ├─
+API Client └─ Theme Context
+
+Specific Layout (Level 1) ↓ provides ├─ Layout Structure (Header,
+Sidebar, Footer) ├─ Navigation ├─ Role-Specific State └─ Layout-Specific
+Components
+
+Page Component (Level 2) ↓ provides ├─ Page Content ├─ Page-Specific
+State └─ Page-Specific Logic
+
+Nested Components (Level 3+) ↓ provides ├─ UI Components ├─ Data Display
+└─ User Interactions Layout Switching Logic text
+
+LAYOUT SELECTION ALGORITHM
+════════════════════════════════════════════════════════════════
+
+Route Accessed ↓ Check Route Path ↓ ├─ /auth/* → Auth Layout ├─
+/customer/onboarding → Onboarding Layout ├─ /customer/chat OR /chat/* →
+Chat Layout ├─ /customer/* → Customer Layout ├─ /admin/* → Admin Layout
+├─ /rm/* → RM Layout ├─ /404, /403, /500, etc. → Error Layout (Blank) └─
+/,/about, /help, etc. → Blank Layout
+
+IF Layout Requires Auth: Check Authentication ↓ IF Not Authenticated:
+Redirect to /auth/login ELSE: Render Layout
+
+IF Layout Requires Role: Check User Role ↓ IF Role Doesn’t Match:
+Redirect to /403 ELSE: Render Layout
+
+IF Layout Requires Feature Flag: Check Feature Flag Status ↓ IF Feature
+Disabled: Show “Coming Soon” or Redirect ELSE: Render Layout ⏸️ PROGRESS
+UPDATE Section 3.1 ✅ COMPLETE - All 9 layout types documented Section
+3.2 ✅ COMPLETE - Layout hierarchy documented
+
+Continuing with remaining subsections (3.3 - 3.16)…
+
+Due to response length limitations, I’ll continue with the remaining
+subsections in the next response.
+
+Status: 15% of Section 3 Complete
+
+Next: Section 3.3 - Header Architecture
+
+Would you like me to continue with the remaining subsections (3.3
+through 3.16), or would you prefer to review and approve what’s been
+documented so far before proceeding?

@@ -1,0 +1,2932 @@
+SECTION 8: PRODUCT RECOMMENDATION & PRODUCT DISCOVERY EXPERIENCE
+════════════════════════════════════════════════════════════════
+
+📋 SECTION METADATA
+
+════════════════════════════════════════════════════════════════
+Section:       8 - Product Recommendation & Product Discovery Experience
+
+Version:       1.0.0
+
+Status:        DRAFT - PENDING APPROVAL
+
+Dependencies:  Sections 1–7 (All Approved)
+
+Extends:       Existing BankMate AI Backend Architecture
+
+Modifications: NONE to existing backend/business logic
+════════════════════════════════════════════════════════════════
+
+⚠️ COMPLIANCE DECLARATION
+
+════════════════════════════════════════════════════════════════
+✅ Backend Architecture:      UNCHANGED
+
+✅ Database Schema:           UNCHANGED
+
+✅ API Endpoints:             UNCHANGED (only mapped)
+
+✅ AI Agents:                 UNCHANGED (only consumed)
+
+✅ Recommendation Engine:     UNCHANGED (only consumed)
+
+✅ QualificationAgent:        UNCHANGED (only consumed)
+
+✅ Kafka Events:              UNCHANGED (only consumed)
+
+✅ Redis Strategy:            UNCHANGED (only referenced)
+
+✅ Business Logic:            UNCHANGED
+
+✅ Authentication:            UNCHANGED (Section 4)
+
+✅ Routing:                   UNCHANGED (Section 2)
+
+✅ Layout Architecture:       UNCHANGED (Section 3)
+
+✅ Dashboard Architecture:    UNCHANGED (Section 6)
+
+✅ AI Copilot:                UNCHANGED (Section 7)
+✅ Documentation Only: Confirmed
+
+✅ No React Code: Confirmed
+
+✅ No TypeScript Code: Confirmed
+
+✅ No CSS Code: Confirmed
+════════════════════════════════════════════════════════════════
+
+🎯 SECTION OVERVIEW
+
+════════════════════════════════════════════════════════════════
+Section 8 defines the complete frontend specification for the
+
+BankMate AI product recommendation and product discovery experience.
+This section covers everything a customer sees, interacts with, and
+
+navigates through when discovering, evaluating, comparing, and
+
+applying for banking products — from the AI-powered recommendation
+
+feed to the product detail journey to the final application CTA.
+All recommendations are sourced exclusively from the existing
+
+Recommendation Engine. All eligibility checks use the existing
+
+QualificationAgent. All product data uses existing product APIs.
+
+No new backend components are introduced.
+Key Integration Points:
+
+RecommendationEngine    → Scores and ranks products per customer
+QualificationAgent      → Real-time eligibility evaluation
+LifeEventDetector       → Life event context for recommendation ranking
+FinancialAnalysisAgent  → Affordability computation
+NextBestActionAgent     → CTA priority per recommendation card
+ConversationalAgent     → AI explanation of recommendations
+Kafka Events            → Product interaction tracking
+Redis Cache             → Recommendation list caching
+Existing APIs           → All product, recommendation, application endpoints
+
+════════════════════════════════════════════════════════════════
+
+8.1 RECOMMENDATION ARCHITECTURE
+
+════════════════════════════════════════════════════════════════
+8.1.1 ARCHITECTURE OVERVIEW
+RECOMMENDATION SYSTEM — FRONTEND LAYER
+
+════════════════════════════════════════════════════════════════
+The frontend recommendation experience operates as a pure consumer
+
+of the backend Recommendation Engine. The frontend:
+✅ Fetches ranked recommendations via existing API
+
+✅ Renders match scores, affordability signals, and life event context
+
+✅ Presents AI explanations sourced from ConversationalAgent
+
+✅ Triggers eligibility checks via QualificationAgent API
+
+✅ Routes all product interactions to existing application journey
+
+✅ Fires Kafka-consumed analytics events per interaction
+
+✅ Reads from Redis-cached recommendation lists for performance
+❌ Does NOT rank or score products on the frontend
+
+❌ Does NOT compute eligibility on the frontend
+
+❌ Does NOT generate AI explanations on the frontend
+
+❌ Does NOT modify product data
+
+❌ Does NOT introduce new scoring logic
+8.1.2 DATA FLOW ARCHITECTURE
+RECOMMENDATION DATA FLOW
+
+════════════════════════════════════════════════════════════════
+Customer Opens Recommendation Page
+
+│
+
+▼
+
+Frontend: GET /recommendations/{customerId}
+
+│
+
+▼
+
+Backend: Recommendation Engine
+
+├── Reads customer profile
+
+├── Evaluates life events (LifeEventDetector)
+
+├── Scores products (RecommendationEngine)
+
+├── Checks affordability (FinancialAnalysisAgent)
+
+├── Determines eligibility (QualificationAgent)
+
+└── Returns ranked recommendation list
+
+│
+
+▼
+
+Redis Cache Layer
+
+├── Cache Key: recommendations:{customerId}
+
+├── TTL: 30 minutes
+
+├── Stale-while-revalidate: Yes
+
+└── Invalidated on: Profile update, life event trigger
+
+│
+
+▼
+
+Frontend Renders:
+
+├── RecommendationsPage (list view)
+
+├── RecommendationCard components (per product)
+
+├── MatchScoreBadge
+
+├── AffordabilityIndicator
+
+├── LifeEventContext banner (if applicable)
+
+└── AI Explanation panel (on demand)
+
+│
+
+▼
+
+Customer Interaction
+
+├── View Details → GET /recommendations/{recId}
+
+├── Apply Now   → POST /applications
+
+├── Compare     → GET /products (multiple IDs)
+
+├── Save        → PUT /recommendations/{recId}/save
+
+└── Dismiss     → PUT /recommendations/{recId}/dismiss
+8.1.3 API MAPPING TABLE
+RECOMMENDATION API ENDPOINTS (EXISTING)
+
+════════════════════════════════════════════════════════════════
+Action                    | Method | Endpoint                                | Trigger
+
+──────────────────────────┼────────┼─────────────────────────────────────────┼─────────────────────────
+
+Fetch recommendations     | GET    | /recommendations/{customerId}           | Page load
+
+Fetch single rec detail   | GET    | /recommendations/{recId}                | Card click
+
+Save recommendation       | PUT    | /recommendations/{recId}/save           | Save button
+
+Dismiss recommendation    | PUT    | /recommendations/{recId}/dismiss        | Dismiss button
+
+Fetch product list        | GET    | /products                               | Product catalog
+
+Fetch product detail      | GET    | /products/{productId}                   | Product detail page
+
+Check eligibility         | POST   | /eligibility/check                      | Eligibility CTA
+
+Fetch AI explanation      | POST   | /chat/send-message (ConversationalAgent)| "Why this?" button
+
+Submit application        | POST   | /applications                           | Apply CTA
+
+Compare products          | GET    | /products?ids={id1,id2,id3}             | Compare action
+
+Track product view        | POST   | /analytics/events                       | Any product view
+
+Fetch saved recs          | GET    | /recommendations/{customerId}/saved     | Saved tab
+
+Fetch recently viewed     | GET    | /products/{customerId}/recently-viewed  | Recently viewed tab
+8.1.4 STATE MANAGEMENT ARCHITECTURE
+RECOMMENDATION STATE TREE
+
+════════════════════════════════════════════════════════════════
+recommendations.store.ts manages:
+State Shape:
+
+├── recommendations
+
+│   ├── list: RecommendationItem[]
+
+│   ├── loading: boolean
+
+│   ├── error: string | null
+
+│   ├── lastFetched: timestamp
+
+│   └── filters: FilterState
+
+│
+
+├── activeRecommendation
+
+│   ├── data: RecommendationDetail | null
+
+│   ├── loading: boolean
+
+│   └── error: string | null
+
+│
+
+├── savedRecommendations
+
+│   ├── list: RecommendationItem[]
+
+│   ├── loading: boolean
+
+│   └── error: string | null
+
+│
+
+├── recentlyViewed
+
+│   ├── list: ProductItem[]
+
+│   └── maxItems: 10
+
+│
+
+├── comparison
+
+│   ├── selectedProducts: ProductItem[] (max 3)
+
+│   ├── isComparing: boolean
+
+│   └── comparisonData: ComparisonData | null
+
+│
+
+├── eligibility
+
+│   ├── results: Record<productId, EligibilityResult>
+
+│   ├── loading: Record<productId, boolean>
+
+│   └── errors: Record<productId, string>
+
+│
+
+└── filters
+
+├── activeCategory: string | null
+
+├── activeLifeEvent: string | null
+
+├── sortBy: 'match_score' | 'affordability' | 'newest'
+
+├── searchQuery: string
+
+└── showSavedOnly: boolean
+Actions:
+
+├── fetchRecommendations(customerId)
+
+├── fetchRecommendationDetail(recId)
+
+├── saveRecommendation(recId)
+
+├── dismissRecommendation(recId)
+
+├── addToComparison(product)
+
+├── removeFromComparison(productId)
+
+├── clearComparison()
+
+├── checkEligibility(productId)
+
+├── setFilter(filterKey, value)
+
+├── clearFilters()
+
+├── fetchSavedRecommendations(customerId)
+
+└── trackProductView(productId)
+8.1.5 CACHE STRATEGY
+REDIS CACHE REFERENCE (EXISTING STRATEGY)
+
+════════════════════════════════════════════════════════════════
+Cache Keys (read by frontend, managed by backend):
+
+├── recommendations:{customerId}           TTL: 30 min
+
+├── products:catalog                       TTL: 60 min
+
+├── products:{productId}                   TTL: 60 min
+
+└── eligibility:{customerId}:{productId}   TTL: 15 min
+Frontend Cache Behaviour:
+
+├── On page load: Check store lastFetched timestamp
+
+├── If < 5 minutes old: Render from store (no API call)
+
+├── If 5–30 minutes old: Render stale + revalidate in background
+
+├── If > 30 minutes: Show loader, fetch fresh
+
+└── On profile update: Invalidate store, force fresh fetch
+════════════════════════════════════════════════════════════════
+
+8.2 RECOMMENDATION LANDING EXPERIENCE
+
+════════════════════════════════════════════════════════════════
+8.2.1 PAGE ENTRY POINTS
+Route: /customer/recommendations
+
+Layout: CustomerLayout (Section 3)
+
+Guards: AuthGuard (Section 2)
+
+Component: RecommendationsPage
+Entry Triggers:
+
+├── Dashboard → "View All Recommendations" CTA (Section 6)
+
+├── Life Event Banner → "See Recommended Products" CTA
+
+├── Sidebar Navigation → "Recommendations" menu item
+
+├── AI Copilot → "Show me products" intent (Section 7)
+
+├── Push Notification → Deep link /customer/recommendations
+
+├── Email/SMS deep link → /customer/recommendations?highlight={recId}
+
+└── Header search result → /customer/recommendations?category={category}
+8.2.2 PAGE LAYOUT STRUCTURE
+RECOMMENDATIONS PAGE LAYOUT
+
+════════════════════════════════════════════════════════════════
+┌─────────────────────────────────────────────────────────────────┐
+
+│  CustomerLayout Header (Section 3 — Unchanged)                  │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Page Hero Section                                              │
+
+│  ┌─────────────────────────────────────────────────────────┐   │
+
+│  │ 👋 Hi Priya, here are your AI-matched products          │   │
+
+│  │ Based on your [Life Event] and financial profile        │   │
+
+│  │ [Last updated: 2 hours ago]   [Refresh] [Filter]        │   │
+
+│  └─────────────────────────────────────────────────────────┘   │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Life Event Context Banner (conditional)                        │
+
+│  ┌─────────────────────────────────────────────────────────┐   │
+
+│  │ 🏠 We noticed you may be planning a home purchase        │   │
+
+│  │ These home loan products are matched to your profile    │   │
+
+│  │ [Confidence: 87%]                      [Learn more →]   │   │
+
+│  └─────────────────────────────────────────────────────────┘   │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Category Filter Tabs                                           │
+
+│  [All] [Home Loans] [Personal Loans] [Credit Cards]            │
+
+│  [Insurance] [Investments] [Savings] [Business]                 │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Sort + Search Bar                                              │
+
+│  [🔍 Search products...]      [Sort: Best Match ▼]             │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Recommendation Grid                                            │
+
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐           │
+
+│  │ Rec Card 1   │ │ Rec Card 2   │ │ Rec Card 3   │           │
+
+│  └──────────────┘ └──────────────┘ └──────────────┘           │
+
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐           │
+
+│  │ Rec Card 4   │ │ Rec Card 5   │ │ Rec Card 6   │           │
+
+│  └──────────────┘ └──────────────┘ └──────────────┘           │
+
+│  [Load More / Pagination]                                       │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Recently Viewed Section                                        │
+
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐         │
+
+│  │ Product  │ │ Product  │ │ Product  │ │ Product  │         │
+
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘         │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  AI Copilot Widget (Section 7 — Persistent)                     │
+
+└─────────────────────────────────────────────────────────────────┘
+8.2.3 PAGE HERO SECTION
+Hero Section Specification:
+
+──────────────────────────
+Background:
+
+├── Gradient: Brand primary to brand secondary (subtle)
+
+├── Height: 120px (desktop), 100px (mobile)
+
+└── Padding: 24px horizontal
+Personalization Elements:
+
+├── Greeting: "Hi {firstName}, here are your AI-matched products"
+
+├── Context: "Based on your {lifeEventLabel} and financial profile"
+
+│    Example: "Based on your Home Purchase journey and financial profile"
+
+├── Timestamp: "Last updated: {relativeTime}" (e.g. "2 hours ago")
+
+├── Refresh Button: Icon + text, triggers fresh API call
+
+└── Filter Toggle: Opens filter drawer on mobile
+Greeting Logic:
+
+├── Morning (6am–12pm): "Good morning, {firstName}"
+
+├── Afternoon (12pm–6pm): "Good afternoon, {firstName}"
+
+├── Evening (6pm–12am): "Good evening, {firstName}"
+
+└── No life event detected: "Based on your financial profile"
+8.2.4 LIFE EVENT CONTEXT BANNER
+Trigger Condition:
+
+├── Backend returns: recommendations.lifeEventContext !== null
+
+└── Life event confidence score: ≥ 60%
+Banner Contents:
+
+├── Life Event Icon (from life-events icon set, Section 1)
+
+├── Life Event Label: "We noticed you may be planning a {eventType}"
+
+├── Context Subtitle: "These {category} products are matched to your profile"
+
+├── Confidence Score Display: "Confidence: {score}%"
+
+├── "Learn more" link → /customer/life-events/{eventId}
+
+└── Dismiss (X) → Hides banner for session, does not modify backend data
+Life Event to Category Mapping:
+
+├── HOME_PURCHASE     → Home Loans
+
+├── MARRIAGE          → Personal Loans, Insurance
+
+├── NEW_BABY          → Insurance, Savings
+
+├── EDUCATION         → Education Loans
+
+├── RETIREMENT        → FD, Pension Plans
+
+├── BUSINESS_START    → Business Loans, Current Account
+
+├── JOB_CHANGE        → Credit Cards, Personal Loans
+
+└── MEDICAL_EMERGENCY → Personal Loans, Health Insurance
+════════════════════════════════════════════════════════════════
+
+8.3 RECOMMENDATION CATEGORIES
+
+════════════════════════════════════════════════════════════════
+8.3.1 CATEGORY FILTER TAB BAR
+Component: CategoryFilterTabs (within RecommendationsPage)
+
+Position: Below Hero Section, above Recommendation Grid
+
+Behavior: Horizontal scroll on mobile
+Category Tab Definitions:
+
+──────────────────────────
+Tab Label        | Filter Value        | Product Types Included
+
+─────────────────┼─────────────────────┼──────────────────────────────────────
+
+All              | null (no filter)    | All product categories
+
+Home Loans       | HOME_LOAN           | Home loan, LAP, plot loan
+
+Personal Loans   | PERSONAL_LOAN       | Personal loan, salary advance
+
+Credit Cards     | CREDIT_CARD         | Credit cards (all variants)
+
+Insurance        | INSURANCE           | Life, health, vehicle, property
+
+Investments      | INVESTMENT          | FD, RD, mutual funds, SGB
+
+Savings          | SAVINGS             | Savings account, salary account
+
+Business         | BUSINESS            | Business loan, OD, current account
+
+Education        | EDUCATION_LOAN      | Education loan, student credit card
+
+NRI Products     | NRI                 | NRE/NRO, remittance (shown if NRI type)
+Tab Rendering Rules:
+
+├── Active tab: Brand primary underline + bold label
+
+├── Default tab: "All" selected on page load
+
+├── Scroll indicator: Fade gradient on right edge when overflow exists
+
+├── Tab badge: Optional count badge (e.g. "Home Loans (3)")
+
+│    Badge source: recommendations.list filtered per category
+
+└── NRI tab: Visible only if customerType === 'nri'
+Tab Interaction:
+
+├── Click tab → Set activeCategory in store → Filter recommendation grid
+
+├── Filter is client-side (no new API call if list already loaded)
+
+└── Filter updates URL query param: ?category=HOME_LOAN (for deep linking)
+8.3.2 CATEGORY EMPTY STATE
+If selected category returns zero recommendations:
+
+├── Illustration: Category-specific empty state illustration (Section 1 assets)
+
+├── Title: "No {category} recommendations yet"
+
+├── Subtitle: "Your AI advisor will suggest {category} products as your profile evolves."
+
+└── CTA: "Explore all products" → Resets filter to "All"
+════════════════════════════════════════════════════════════════
+
+8.4 RECOMMENDATION CARDS
+
+════════════════════════════════════════════════════════════════
+8.4.1 RECOMMENDATION CARD COMPONENT
+Component: RecommendationCard
+
+Location: features/recommendations/components/RecommendationCard.tsx (Section 1)
+
+Usage: Grid of cards on RecommendationsPage
+8.4.2 CARD ANATOMY
+RECOMMENDATION CARD STRUCTURE
+
+════════════════════════════════════════════════════════════════
+┌─────────────────────────────────────────────────────┐
+
+│  [PRODUCT ICON / BANK LOGO]     [MATCH SCORE BADGE] │
+
+│                                      ✦ 94% Match    │
+
+├─────────────────────────────────────────────────────┤
+
+│  Product Name                                        │
+
+│  Product Subtitle / Bank Name                        │
+
+├─────────────────────────────────────────────────────┤
+
+│  Key Metric 1        │  Key Metric 2                │
+
+│  ₹50,000 – ₹10L      │  10.5% p.a.                 │
+
+│  Loan Amount         │  Interest Rate               │
+
+├─────────────────────────────────────────────────────┤
+
+│  [AFFORDABILITY INDICATOR]                           │
+
+│  ▓▓▓▓▓▓▓░░░  Within your budget                    │
+
+├─────────────────────────────────────────────────────┤
+
+│  [LIFE EVENT TAG] 🏠 Home Purchase                  │
+
+│  [ELIGIBILITY STATUS] ✅ Likely Eligible            │
+
+├─────────────────────────────────────────────────────┤
+
+│  [Primary CTA: Apply Now]   [Secondary: View Details]│
+
+│  [Save 🔖]                  [Compare ⚖️]            │
+
+└─────────────────────────────────────────────────────┘
+8.4.3 CARD ELEMENT SPECIFICATIONS
+Product Icon / Bank Logo:
+
+├── Size: 48×48px
+
+├── Shape: Rounded square (border-radius: 12px)
+
+├── Source: /public/assets/icons/products/ (Section 1)
+
+├── Fallback: Product category icon if bank logo unavailable
+
+└── Alt text: "{productName} logo"
+Match Score Badge:
+
+├── Component: MatchScoreBadge (Section 1)
+
+├── Position: Top-right of card header
+
+├── Source: recommendation.matchScore (from Recommendation Engine)
+
+├── Display Format: "✦ {score}% Match"
+
+├── Color Coding:
+
+│    ├── 90–100%: Green (Excellent)
+
+│    ├── 75–89%:  Blue (Good)
+
+│    ├── 60–74%:  Amber (Fair)
+
+│    └── < 60%:   Gray (Low — still shown, not filtered)
+
+└── Tooltip: "Match score calculated by BankMate AI based on your profile"
+Product Name & Subtitle:
+
+├── Name: Product name from API (e.g. "SBI Home Loan")
+
+├── Subtitle: Product variant or bank name (e.g. "State Bank of India")
+
+├── Name font: 16px, weight 600
+
+└── Subtitle font: 13px, color Gray-500
+Key Metrics (2 per card):
+
+├── Metrics vary per product category:
+
+│
+
+│   HOME_LOAN / PERSONAL_LOAN / EDUCATION_LOAN:
+
+│     ├── Metric 1: Loan Amount Range (₹ min – ₹ max)
+
+│     └── Metric 2: Interest Rate (X.X% p.a.)
+
+│
+
+│   CREDIT_CARD:
+
+│     ├── Metric 1: Annual Fee (₹X or "Zero Annual Fee")
+
+│     └── Metric 2: Reward Rate (X points per ₹100)
+
+│
+
+│   INSURANCE:
+
+│     ├── Metric 1: Coverage (₹X Lakh)
+
+│     └── Metric 2: Premium (₹X / month)
+
+│
+
+│   INVESTMENT (FD/RD):
+
+│     ├── Metric 1: Interest Rate (X.X% p.a.)
+
+│     └── Metric 2: Tenure (X months – X years)
+
+│
+
+│   SAVINGS_ACCOUNT:
+
+│     ├── Metric 1: Interest Rate (X% p.a.)
+
+│     └── Metric 2: Minimum Balance (₹X or "Zero Balance")
+
+│
+
+└── Format: All amounts in Indian Rupee format (₹X,XX,XXX)
+Affordability Indicator:
+
+├── Component: AffordabilityIndicator (Section 1)
+
+├── Source: recommendation.affordabilityScore (FinancialAnalysisAgent)
+
+├── Display: Horizontal progress bar + label
+
+├── Labels:
+
+│    ├── Score 80–100: "Well within your budget" (Green)
+
+│    ├── Score 60–79:  "Within your budget" (Blue)
+
+│    ├── Score 40–59:  "Slightly above budget" (Amber)
+
+│    └── Score < 40:   "May stretch your budget" (Red)
+
+└── Bar fill color: Matches label color above
+Life Event Tag:
+
+├── Visible: Only if recommendation.lifeEventContext is not null
+
+├── Icon: Life event category icon (from Section 1 assets)
+
+├── Label: Life event display name (e.g. "🏠 Home Purchase")
+
+└── Style: Pill/chip, Brand secondary background
+Eligibility Status:
+
+├── Source: recommendation.eligibilityStatus (QualificationAgent)
+
+├── States:
+
+│    ├── LIKELY_ELIGIBLE:     "✅ Likely Eligible"    (Green chip)
+
+│    ├── CHECK_ELIGIBILITY:   "🔍 Check Eligibility"  (Blue chip, clickable)
+
+│    ├── MAY_NOT_QUALIFY:     "⚠️ May Not Qualify"   (Amber chip)
+
+│    └── NOT_ELIGIBLE:        "❌ Not Eligible"        (Red chip, card dimmed)
+
+└── Clicking CHECK_ELIGIBILITY → triggers POST /eligibility/check
+8.4.4 CARD CTA BUTTONS
+Primary CTA:
+
+├── Label: "Apply Now"
+
+├── Style: Brand primary filled button, full width
+
+├── Action: Navigate to /customer/products/{productId}/apply
+
+├── Guard: KYCGuard — if KYC not complete → redirect to KYC page with returnUrl
+
+├── Disabled state: If eligibilityStatus === NOT_ELIGIBLE
+
+└── Loading state: Spinner while KYC check resolves
+Secondary CTA:
+
+├── Label: "View Details"
+
+├── Style: Brand primary outlined button, full width
+
+└── Action: Navigate to /customer/recommendations/{recId}
+Icon Actions (bottom row):
+
+├── Save Button:
+
+│    ├── Icon: Bookmark (outline → filled when saved)
+
+│    ├── Action: PUT /recommendations/{recId}/save
+
+│    ├── Optimistic update: Toggle saved state immediately
+
+│    └── Toast: "Saved to your list" / "Removed from saved"
+
+│
+
+└── Compare Button:
+
+├── Icon: Scales / ⚖️
+
+├── Action: Add product to comparison store (max 3 products)
+
+├── Selected state: Filled icon + blue border on card
+
+├── If 3 already selected: Toast "You can compare up to 3 products"
+
+└── Sticky Compare Bar appears at bottom of screen when ≥ 2 selected
+8.4.5 CARD INTERACTION STATES
+Default:
+
+├── Shadow: Subtle card shadow
+
+├── Border: 1px solid Gray-200
+
+└── Background: White
+Hover (Desktop):
+
+├── Shadow: Elevated shadow
+
+├── Border: 1px solid Brand primary (light)
+
+└── Transition: 200ms ease
+Saved State:
+
+├── Top-right corner: Blue ribbon/bookmark icon (filled)
+
+└── Card border: Blue accent
+Selected for Comparison:
+
+├── Border: 2px solid Brand primary
+
+├── Checkmark overlay: Top-left corner
+
+└── Background: Very light brand tint
+Dismissed:
+
+├── Card slides out (animated)
+
+└── Toast: "Product removed from recommendations"
+Not Eligible (Dimmed):
+
+├── Opacity: 0.7
+
+├── Apply Now button: Disabled
+
+└── Tooltip on button: "You do not meet the eligibility criteria"
+8.4.6 CARD SKELETON LOADING STATE
+While recommendations are loading:
+
+├── Show 6 skeleton cards in grid layout
+
+├── Skeleton elements:
+
+│    ├── Rectangle: Product icon area (48×48)
+
+│    ├── Rectangle: Match score badge area
+
+│    ├── Two lines: Product name + subtitle
+
+│    ├── Two rectangles: Key metrics
+
+│    ├── Rectangle: Affordability bar
+
+│    └── Two rectangles: CTA buttons
+
+└── Animation: Shimmer left-to-right
+════════════════════════════════════════════════════════════════
+
+8.5 PRODUCT DISCOVERY EXPERIENCE
+
+════════════════════════════════════════════════════════════════
+8.5.1 PRODUCT CATALOG PAGE
+Route: /customer/products
+
+Layout: CustomerLayout (Section 3)
+
+Guards: AuthGuard (Section 2)
+
+Component: ProductsPage
+
+API: GET /products
+Purpose:
+
+The Product Catalog is the browsable product library — separate from
+
+the personalized recommendation feed. Customers can discover products
+
+they were not explicitly recommended.
+8.5.2 PRODUCT CATALOG LAYOUT
+PRODUCTS PAGE LAYOUT
+
+════════════════════════════════════════════════════════════════
+┌─────────────────────────────────────────────────────────────────┐
+
+│  CustomerLayout Header (Section 3)                              │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Page Header                                                    │
+
+│  "Explore Banking Products"                                     │
+
+│  "Browse our complete product catalog"                          │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Search Bar (Full Width)                                        │
+
+│  [🔍 Search for loans, cards, insurance…         ] [Search]    │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Filter Sidebar        │  Product Grid                         │
+
+│  ┌───────────────────┐ │  ┌──────────┐ ┌──────────┐           │
+
+│  │ Category          │ │  │ Product  │ │ Product  │           │
+
+│  │ ○ Home Loans      │ │  │ Card     │ │ Card     │           │
+
+│  │ ○ Personal Loans  │ │  └──────────┘ └──────────┘           │
+
+│  │ ○ Credit Cards    │ │  ┌──────────┐ ┌──────────┐           │
+
+│  │ ○ Insurance       │ │  │ Product  │ │ Product  │           │
+
+│  ├───────────────────┤ │  │ Card     │ │ Card     │           │
+
+│  │ Interest Rate     │ │  └──────────┘ └──────────┘           │
+
+│  │ Min ────────── Max│ │                                       │
+
+│  ├───────────────────┤ │  Pagination / Load More               │
+
+│  │ Loan Amount       │ │                                       │
+
+│  │ Min ────────── Max│ │                                       │
+
+│  ├───────────────────┤ │                                       │
+
+│  │ Sort By           │ │                                       │
+
+│  │ ○ Recommended     │ │                                       │
+
+│  │ ○ Interest Rate   │ │                                       │
+
+│  │ ○ Loan Amount     │ │                                       │
+
+│  │ ○ Newest          │ │                                       │
+
+│  └───────────────────┘ │                                       │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  AI Copilot Widget (Section 7)                                  │
+
+└─────────────────────────────────────────────────────────────────┘
+8.5.3 PRODUCT CATALOG CARD
+Component: ProductCard (features/products/components/ProductCard.tsx, Section 1)
+Differences from RecommendationCard:
+
+├── No MatchScoreBadge (catalog view is not personalized)
+
+├── No AffordabilityIndicator
+
+├── No Life Event Tag
+
+├── Shows "AI Match" badge only if product exists in customer's rec list
+
+│    Badge: "✦ AI Recommended" (links to recommendation detail)
+
+└── Eligibility: Shows "Check Eligibility" CTA (not pre-evaluated)
+Product Card Elements:
+
+├── Product icon / bank logo (same spec as RecommendationCard)
+
+├── Product name + subtitle
+
+├── Category chip (e.g. "Home Loan")
+
+├── 2 key metrics (same logic as RecommendationCard 8.4.3)
+
+├── "View Details" primary CTA
+
+├── "Compare ⚖️" icon action
+
+└── "Save 🔖" icon action
+8.5.4 FEATURED PRODUCTS SECTION
+Above the product grid, a horizontal scroll row for featured products:
+Featured Products Row:
+
+├── Label: "Featured Products"
+
+├── Source: /products?featured=true
+
+├── Layout: Horizontal scroll row of ProductCard (compact variant)
+
+├── Max items: 6 shown (scroll for more)
+
+└── Refresh: Rotates featured set daily (backend controlled)
+8.5.5 RECENTLY VIEWED QUICK ACCESS
+If customer has recently viewed products (store: recentlyViewed):
+
+├── Section label: "Continue where you left off"
+
+├── Layout: Horizontal scroll row
+
+├── Max items: 4 visible
+
+├── Source: Local store (persisted to localStorage, max 10 items)
+
+└── Clear link: "Clear history"
+════════════════════════════════════════════════════════════════
+
+8.6 PRODUCT COMPARISON
+
+════════════════════════════════════════════════════════════════
+8.6.1 COMPARISON TRIGGER
+Route: /customer/recommendations/compare
+
+Component: ProductComparisonPage (Section 1)
+
+API: GET /products?ids={id1,id2,id3}
+Trigger:
+
+├── User clicks Compare ⚖️ on 2 or more cards
+
+├── Sticky comparison bar appears at bottom
+
+└── User clicks "Compare Now" in sticky bar
+8.6.2 STICKY COMPARISON BAR
+Appears when 1 or more products are selected for comparison:
+STICKY COMPARISON BAR
+
+════════════════════════════════════════════════════════════════
+┌─────────────────────────────────────────────────────────────────┐
+
+│  ⚖️ Comparing (2/3)                              [Compare Now] │
+
+│  [Product 1 Chip ✕]  [Product 2 Chip ✕]  [+ Add Product]      │
+
+└─────────────────────────────────────────────────────────────────┘
+Position: Fixed bottom, above AI Copilot widget (z-index: 300)
+
+Animation: Slides up from bottom when first product added
+
+Background: White with top shadow
+Elements:
+
+├── Title: "⚖️ Comparing ({count}/3)"
+
+├── Product chips: Product name + remove (✕) button each
+
+├── "+ Add Product": Visible if count < 3 (placeholder chip)
+
+├── "Compare Now" button: Enabled when count ≥ 2
+
+└── "Clear All" link: Resets comparison store
+8.6.3 COMPARISON PAGE LAYOUT
+PRODUCT COMPARISON TABLE
+
+════════════════════════════════════════════════════════════════
+┌─────────────────────────────────────────────────────────────────────────────┐
+
+│  Page Header: "Compare Products"                [← Back to Recommendations] │
+
+├─────────────────┬─────────────────────┬─────────────────────┬───────────────┤
+
+│  Feature        │  Product A           │  Product B           │  Product C    │
+
+│                 │  [Icon + Name]       │  [Icon + Name]       │  [Icon + Name]│
+
+│                 │  [Remove]            │  [Remove]            │  [Remove]     │
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  AI Match Score │  ✦ 94%               │  ✦ 81%               │  ✦ 67%        │
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  Eligibility    │  ✅ Likely Eligible  │  ✅ Likely Eligible  │  ⚠️ May Not  │
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  Affordability  │  ▓▓▓▓▓▓▓▓░░ 82%     │  ▓▓▓▓▓▓░░░░ 64%     │  ▓▓▓░░░░░░░ 34%│
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  Interest Rate  │  8.5% p.a. ✅ Best  │  9.2% p.a.           │  10.1% p.a.   │
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  Loan Amount    │  ₹10L – ₹1 Cr       │  ₹5L – ₹75L          │  ₹5L – ₹50L   │
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  Tenure         │  Up to 30 years      │  Up to 20 years      │  Up to 15 years│
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  Processing Fee │  0.5%                │  1%                  │  1.5%         │
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  Prepayment     │  NIL ✅ Best         │  2% charge           │  2% charge    │
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  Key Feature 1  │  ✅                  │  ✅                  │  ❌           │
+
+│  Key Feature 2  │  ✅                  │  ❌                  │  ✅           │
+
+├─────────────────┼─────────────────────┼─────────────────────┼───────────────┤
+
+│  CTA            │  [Apply Now]         │  [Apply Now]         │  [Apply Now]  │
+
+└─────────────────┴─────────────────────┴─────────────────────┴───────────────┘
+8.6.4 COMPARISON TABLE RULES
+Best Value Highlighting:
+
+├── Best interest rate: Green chip + "✅ Best Rate"
+
+├── Best affordability: Highlighted bar
+
+├── Best match score: Star icon + "✅ Top Match"
+
+└── Zero fee: "✅ No Fee" green label
+Feature Comparison Rows:
+
+├── Tick (✅) for feature present
+
+├── Cross (❌) for feature absent
+
+└── Features sourced from product.features[] API field
+Scroll Behavior:
+
+├── Feature column (left): Sticky / frozen while product columns scroll
+
+└── Horizontal scroll on mobile (3 products may overflow)
+AI Recommendation Banner (within comparison page):
+
+├── Above table: "Based on your profile, Product A is your best match"
+
+├── Source: Highest matchScore in comparison set
+
+└── Powered by Recommendation Engine (no frontend logic)
+════════════════════════════════════════════════════════════════
+
+8.7 RECOMMENDATION DETAILS
+
+════════════════════════════════════════════════════════════════
+8.7.1 RECOMMENDATION DETAIL PAGE
+Route: /customer/recommendations/{recId}
+
+Layout: CustomerLayout (Section 3)
+
+Guards: AuthGuard (Section 2)
+
+Component: RecommendationDetailsPage (Section 1)
+
+API: GET /recommendations/{recId}
+8.7.2 PAGE LAYOUT
+RECOMMENDATION DETAIL LAYOUT
+
+════════════════════════════════════════════════════════════════
+┌─────────────────────────────────────────────────────────────────┐
+
+│  Header: Breadcrumb > Recommendations > {Product Name}          │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Product Hero                                                   │
+
+│  ┌───────────────────────────────────────────────────────────┐ │
+
+│  │ [Product Icon]  Product Name          [✦ 94% Match]       │ │
+
+│  │                 Bank Name / Category                       │ │
+
+│  │                 [Life Event Tag]                           │ │
+
+│  └───────────────────────────────────────────────────────────┘ │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Two-Column Layout                                              │
+
+│  ┌─────────────────────────────┐ ┌───────────────────────────┐ │
+
+│  │ LEFT: Product Details        │ │ RIGHT: AI Match Panel     │ │
+
+│  │                              │ │                           │ │
+
+│  │ • Key Metrics                │ │ • Match Score Breakdown   │ │
+
+│  │ • Features List              │ │ • Eligibility Status      │ │
+
+│  │ • Eligibility Criteria       │ │ • Affordability           │ │
+
+│  │ • Terms Summary              │ │ • AI Explanation          │ │
+
+│  │ • Documents Required         │ │ • "Why this product?"     │ │
+
+│  │ • EMI Calculator             │ │                           │ │
+
+│  │                              │ │ [Apply Now] (sticky)      │ │
+
+│  └─────────────────────────────┘ └───────────────────────────┘ │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Similar Products (horizontal scroll)                           │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  AI Copilot Widget (Section 7)                                  │
+
+└─────────────────────────────────────────────────────────────────┘
+8.7.3 LEFT PANEL — PRODUCT DETAILS
+Key Metrics Section:
+
+├── Display: Grid of 4 metric tiles (2×2)
+
+├── Metrics depend on product category (same logic as card 8.4.3)
+
+├── Each tile: Label + Value + Info icon (tooltip with explanation)
+
+└── Example tile: "Interest Rate / 8.5% p.a." + ⓘ "Fixed for first 2 years"
+Features List:
+
+├── Section title: "Product Features"
+
+├── List: Checkmark (✅) + Feature label per item
+
+├── Source: product.features[] from API
+
+├── Max shown: 6 features (with "Show all" expand if more)
+
+└── Icons: Category-relevant feature icons
+Eligibility Criteria:
+
+├── Section title: "Eligibility Criteria"
+
+├── List: Each criterion with Met/Not Met/Unknown status
+
+│    ├── Met (✅): Criterion + "You qualify" label
+
+│    ├── Not Met (❌): Criterion + "Does not match" label
+
+│    └── Unknown (🔍): Criterion + "Not verified" label
+
+├── Source: QualificationAgent result mapped per criterion
+
+└── Footer: "Eligibility is indicative. Final approval by bank."
+Documents Required Section:
+
+├── Section title: "Documents Required"
+
+├── List: Document type + format/size hints
+
+│    Example: "Aadhaar Card (PDF or Image, max 5MB)"
+
+└── CTA: "Start KYC" → /customer/kyc (if KYC not done)
+EMI Calculator (for loan products):
+
+├── Component: EMICalculator (Section 1)
+
+├── Inputs:
+
+│    ├── Loan Amount (slider + input)
+
+│    ├── Tenure (slider + dropdown)
+
+│    └── Interest Rate (pre-filled from product, editable)
+
+├── Output: Monthly EMI (real-time, client-side calculation)
+
+├── Calculation formula: Standard reducing balance EMI formula
+
+├── Shows: EMI amount + Total interest payable + Total payment
+
+└── Note: "Actual EMI may vary based on bank assessment"
+Terms Summary:
+
+├── Section title: "Key Terms"
+
+├── Fields: Processing fee, prepayment charges, foreclosure terms
+
+└── Link: "View full terms" → product.termsUrl (external link, new tab)
+8.7.4 RIGHT PANEL — AI MATCH PANEL
+Match Score Breakdown:
+
+├── Section title: "Why {score}% Match?"
+
+├── Sub-scores displayed as horizontal bars:
+
+│    ├── Income Match:       ▓▓▓▓▓▓▓▓░░ 82%
+
+│    ├── Credit Score Match: ▓▓▓▓▓▓░░░░ 71%
+
+│    ├── Life Event Fit:     ▓▓▓▓▓▓▓▓▓░ 91%
+
+│    └── Goal Alignment:     ▓▓▓▓▓▓▓▓░░ 84%
+
+├── Source: recommendation.matchBreakdown from Recommendation Engine
+
+└── Footer: "Scored by BankMate AI Recommendation Engine"
+Eligibility Status Block:
+
+├── Large status pill (Likely Eligible / Check Eligibility / Not Eligible)
+
+├── Sub-label: Eligibility summary sentence from QualificationAgent
+
+└── CTA: "Run Full Eligibility Check" → POST /eligibility/check
+Affordability Block:
+
+├── Component: AffordabilityIndicator (full version)
+
+├── Shows: Monthly EMI estimate vs. customer's disposable income
+
+│    Example: "Est. EMI ₹12,500 / Your disposable income ₹45,000"
+
+├── Bar: EMI as % of disposable income
+
+└── Verdict: "This leaves you 72% of income for other expenses"
+AI Explanation Panel:
+
+├── Section 8.9 defines this fully (below)
+
+├── Collapsed by default: "Why is this recommended for you? ▼"
+
+└── Expand → Loads AI explanation (Section 8.9)
+Sticky Apply Panel (right panel bottom):
+
+├── Product name (small)
+
+├── Match score badge
+
+├── [Apply Now] primary button
+
+├── [Save 🔖] icon
+
+└── Stays fixed as user scrolls left panel
+════════════════════════════════════════════════════════════════
+
+8.8 ELIGIBILITY VISUALIZATION
+
+════════════════════════════════════════════════════════════════
+8.8.1 ELIGIBILITY VISUALIZATION COMPONENT
+Component: EligibilityChecker (features/products/components/EligibilityChecker.tsx, Section 1)
+
+API: POST /eligibility/check (QualificationAgent)
+Trigger Scenarios:
+
+├── "Check Eligibility" chip on recommendation card
+
+├── "Run Full Eligibility Check" CTA on recommendation detail right panel
+
+├── "Check Eligibility" CTA on product detail page
+
+└── Automatic: When customer opens recommendation detail (background check)
+8.8.2 ELIGIBILITY CHECK STATES
+State 1 — IDLE (Pre-check):
+
+├── Display: "Check your eligibility for this product"
+
+├── Subtitle: "Get an instant AI-powered eligibility estimate"
+
+├── CTA: [Check Eligibility] button
+
+└── Note: "Soft check only. No impact on credit score."
+State 2 — LOADING (API in progress):
+
+├── Display: Animated loading ring
+
+├── Text: "Checking your eligibility…"
+
+└── Duration: Backend response typically < 3 seconds
+State 3 — LIKELY_ELIGIBLE:
+
+┌─────────────────────────────────────────┐
+
+│  ✅ You are likely eligible!            │
+
+│                                         │
+
+│  Income Match       ✅ Meets criteria   │
+
+│  Credit Score       ✅ Meets criteria   │
+
+│  Employment Type    ✅ Meets criteria   │
+
+│  Age Requirement    ✅ Meets criteria   │
+
+│                                         │
+
+│  "Your profile matches this product's   │
+
+│   requirements. Apply with confidence." │
+
+│                                         │
+
+│  [Apply Now]         [Save for Later]   │
+
+└─────────────────────────────────────────┘
+State 4 — MAY_NOT_QUALIFY:
+
+┌─────────────────────────────────────────┐
+
+│  ⚠️ You may not fully qualify           │
+
+│                                         │
+
+│  Income Match       ✅ Meets criteria   │
+
+│  Credit Score       ⚠️ Below threshold  │
+
+│  Employment Type    ✅ Meets criteria   │
+
+│  Age Requirement    ✅ Meets criteria   │
+
+│                                         │
+
+│  "You can still apply — final decision  │
+
+│   is with the bank."                    │
+
+│                                         │
+
+│  [Apply Anyway]      [Explore Alternatives]│
+
+└─────────────────────────────────────────┘
+State 5 — NOT_ELIGIBLE:
+
+┌─────────────────────────────────────────┐
+
+│  ❌ You do not qualify at this time     │
+
+│                                         │
+
+│  Income Match       ✅ Meets criteria   │
+
+│  Credit Score       ❌ Does not meet    │
+
+│  Employment Type    ❌ Does not meet    │
+
+│  Age Requirement    ✅ Meets criteria   │
+
+│                                         │
+
+│  "We found other products that suit you │
+
+│   better. See alternatives below."      │
+
+│                                         │
+
+│  [See Alternatives]                     │
+
+└─────────────────────────────────────────┘
+8.8.3 ELIGIBILITY CRITERIA VISUALIZATION
+Each criterion row in eligibility result:
+
+├── Criterion label (e.g. "Minimum Income")
+
+├── Required value (e.g. "₹25,000 / month")
+
+├── Customer value (e.g. "₹45,000 / month") — shown only if LIKELY_ELIGIBLE
+
+├── Status icon (✅ / ⚠️ / ❌)
+
+└── Customer value is NOT shown for NOT_ELIGIBLE (privacy / UX)
+Alternatives Module (shown on NOT_ELIGIBLE or MAY_NOT_QUALIFY):
+
+├── Section label: "Products better suited for you"
+
+├── Source: GET /recommendations/{customerId} filtered by eligibility
+
+├── Shows 3 alternative recommendation cards (compact)
+
+└── Link: "View all recommendations"
+════════════════════════════════════════════════════════════════
+
+8.9 AI RECOMMENDATION EXPLANATION
+
+════════════════════════════════════════════════════════════════
+8.9.1 EXPLANATION PANEL
+Component: RecommendationDetails (AI Explanation section)
+
+API: POST /chat/send-message (ConversationalAgent)
+
+Trigger: User clicks "Why is this recommended for you?"
+8.9.2 EXPLANATION REQUEST PAYLOAD
+When user clicks "Why this?":
+
+├── Action: POST /chat/send-message
+
+├── Payload:
+
+│    ├── agentType: "ConversationalAgent"
+
+│    ├── intent: "EXPLAIN_RECOMMENDATION"
+
+│    ├── context:
+
+│    │    ├── customerId: {customerId}
+
+│    │    ├── productId: {productId}
+
+│    │    └── recId: {recId}
+
+│    └── message: "Why is {productName} recommended for me?"
+
+└── Response: Natural language explanation string
+8.9.3 EXPLANATION DISPLAY
+EXPLANATION PANEL STATES
+
+════════════════════════════════════════════════════════════════
+Loading State:
+
+├── AI avatar (BankMate AI bot icon) with typing animation (three dots)
+
+└── Text: "BankMate AI is preparing your explanation…"
+Loaded State:
+
+┌─────────────────────────────────────────────────────┐
+
+│  🤖 BankMate AI Explains                            │
+
+│                                                     │
+
+│  "Based on your profile, Priya, we recommend        │
+
+│   this SBI Home Loan because:                       │
+
+│                                                     │
+
+│   ✦ Your monthly income of ₹75,000 comfortably     │
+
+│     supports an EMI of ₹22,000.                    │
+
+│                                                     │
+
+│   ✦ Your credit score of 780 qualifies you for     │
+
+│     the best interest rate tier.                   │
+
+│                                                     │
+
+│   ✦ Our AI detected a likely home purchase         │
+
+│     intent from your recent transactions.          │
+
+│                                                     │
+
+│   ✦ This product aligns with your 5-year           │
+
+│     financial goal of owning a home."              │
+
+│                                                     │
+
+│  [Ask a follow-up question…] → Opens AI Copilot    │
+
+│  [Powered by BankMate AI]                          │
+
+└─────────────────────────────────────────────────────┘
+Error State:
+
+├── Text: "Unable to load explanation right now"
+
+└── CTA: [Try again] → Retry POST /chat/send-message
+8.9.4 EXPLANATION FORMATTING RULES
+├── Explanation is rendered as structured bullet points
+
+├── Each bullet begins with "✦" (brand star icon)
+
+├── Customer name is personalized (from auth store)
+
+├── Financial figures are formatted in Indian Rupee format
+
+├── Explanation max length: 5 bullets (ConversationalAgent truncates)
+
+├── Tone: Friendly, advisory, first-person AI ("we recommend…")
+
+└── Disclaimer: "This is an AI-generated explanation. Not financial advice."
+8.9.5 FOLLOW-UP INTEGRATION
+"Ask a follow-up question" CTA:
+
+├── Opens AI Copilot widget (Section 7) in inline mode
+
+├── Pre-populates context: current product and recommendation
+
+├── Customer can ask: "What if my income was lower?" / "Compare with alternatives"
+
+└── ConversationalAgent handles follow-up via existing /chat/send-message endpoint
+════════════════════════════════════════════════════════════════
+
+8.10 PRODUCT FILTERING
+
+════════════════════════════════════════════════════════════════
+8.10.1 FILTER ARCHITECTURE
+Filter Location: RecommendationsPage (category tabs + sort) and ProductsPage (sidebar + sort)
+
+Filter State: Managed in recommendations.store and products.store
+
+Filter Persistence: URL query params (for shareable/deep-linked filtered views)
+8.10.2 RECOMMENDATIONS PAGE FILTERS
+Sort Dropdown:
+
+├── Options:
+
+│    ├── "Best Match" (default) → Sort by matchScore DESC
+
+│    ├── "Most Affordable" → Sort by affordabilityScore DESC
+
+│    ├── "Newest" → Sort by createdAt DESC
+
+│    └── "Interest Rate: Low to High" → Sort by interestRate ASC
+
+├── Behavior: Client-side sort on loaded recommendation list
+
+└── URL param: ?sort=match_score
+Life Event Filter (if multiple life events detected):
+
+├── Chip group: One chip per detected life event
+
+├── Behavior: Filter recommendations by lifeEventContext
+
+├── Multi-select: No (only one life event filter active at a time)
+
+└── "All Events" chip: Resets filter
+Eligibility Filter:
+
+├── Toggle: "Show only eligible products"
+
+├── Behavior: Filter out NOT_ELIGIBLE recommendations
+
+└── Default: Off (all recommendations shown)
+8.10.3 PRODUCT CATALOG PAGE FILTERS (SIDEBAR)
+Category Filter:
+
+├── Type: Radio group (single select)
+
+├── Options: All product categories (8.3.1 table)
+
+└── URL param: ?category=HOME_LOAN
+Interest Rate Filter:
+
+├── Type: Range slider (dual handle)
+
+├── Range: 0% – 25%
+
+├── Step: 0.5%
+
+└── URL param: ?minRate=8&maxRate=14
+Loan Amount Filter (loan products only):
+
+├── Type: Range slider (dual handle)
+
+├── Range: ₹10,000 – ₹5,00,00,000
+
+├── Step: ₹10,000
+
+└── URL param: ?minAmount=500000&maxAmount=5000000
+Tenure Filter (loan products only):
+
+├── Type: Checkbox group
+
+├── Options: "Up to 5 years", "5–10 years", "10–20 years", "20+ years"
+
+└── URL param: ?tenure=10-20
+Annual Fee Filter (credit cards only):
+
+├── Type: Radio group
+
+├── Options: "Any", "Zero Annual Fee", "Under ₹1,000", "₹1,000–₹5,000"
+
+└── URL param: ?annualFee=zero
+Sort Options:
+
+├── "Recommended" (default — AI match score)
+
+├── "Interest Rate: Low to High"
+
+├── "Loan Amount: High to Low"
+
+├── "Newest First"
+
+└── URL param: ?sort=interest_rate_asc
+Filter Reset:
+
+├── "Clear all filters" link at top of filter sidebar
+
+└── Resets all filter state + URL params
+8.10.4 ACTIVE FILTER CHIPS (PRODUCT CATALOG)
+Below search bar, above product grid:
+
+├── One chip per active filter (e.g. "Category: Home Loans ✕")
+
+├── Remove individual filter: click ✕ on chip
+
+└── "Clear all": Resets all
+════════════════════════════════════════════════════════════════
+
+8.11 SEARCH EXPERIENCE
+
+════════════════════════════════════════════════════════════════
+8.11.1 PRODUCT SEARCH
+Location: Search bar on ProductsPage and RecommendationsPage
+
+API: GET /products?search={query}
+Search Input Behavior:
+
+├── Debounce: 300ms after last keystroke before API call
+
+├── Min characters: 2
+
+├── Clear button: Appears when input has text (✕ icon)
+
+└── Keyboard: Enter triggers search; Esc clears and blurs
+8.11.2 SEARCH SUGGESTIONS DROPDOWN
+Triggers when user types ≥ 2 characters:
+SEARCH SUGGESTIONS DROPDOWN
+
+════════════════════════════════════════════════════════════════
+┌───────────────────────────────────────────────────┐
+
+│  Recent Searches                                  │
+
+│  🕐 Home loan                                    │
+
+│  🕐 Zero fee credit card                         │
+
+│                                                   │
+
+│  Product Suggestions (live results)               │
+
+│  🏠 SBI Home Loan                  Home Loan      │
+
+│  🏠 HDFC Home Loan                 Home Loan      │
+
+│  💳 HDFC Millennia Credit Card     Credit Card    │
+
+│                                                   │
+
+│  Help Articles                                    │
+
+│  📄 How to apply for a home loan                 │
+
+│  📄 Documents needed for personal loan           │
+
+└───────────────────────────────────────────────────┘
+Sections:
+
+├── Recent Searches: Last 5 searches (from localStorage)
+
+├── Product Suggestions: From GET /products?search={query}
+
+│    Max 5 results, each with product icon + name + category chip
+
+└── Help Articles: Static links to /help articles (hardcoded top matches)
+Keyboard Navigation:
+
+├── Arrow down/up: Navigate through suggestions
+
+├── Enter: Select highlighted suggestion
+
+└── Esc: Close dropdown, return focus to input
+8.11.3 SEARCH RESULTS PAGE
+Route: /customer/products?search={query}
+
+├── Heading: "Results for '{query}'"
+
+├── Result count: "{N} products found"
+
+├── Grid: ProductCard components (same as catalog)
+
+├── No results: Empty state (Section 8.18)
+
+└── Refine: All catalog filters available alongside results
+8.11.4 SEARCH WITHIN RECOMMENDATIONS
+On RecommendationsPage search bar:
+
+├── Filters the already-loaded recommendation list client-side
+
+├── Matches: Product name, bank name, category
+
+├── No API call (performance optimization)
+
+└── No results: "No recommendations matching '{query}'" with clear CTA
+════════════════════════════════════════════════════════════════
+
+8.12 PRODUCT DETAIL JOURNEY
+
+════════════════════════════════════════════════════════════════
+8.12.1 PRODUCT DETAIL PAGE
+Route: /customer/products/{productId}
+
+Layout: CustomerLayout (Section 3)
+
+Guards: AuthGuard (Section 2)
+
+Component: ProductDetailsPage (Section 1)
+
+API: GET /products/{productId}
+Note: This page is for the general product catalog view.
+
+When accessed from a recommendation, the recommendation detail
+
+page (8.7) is used instead, which includes AI match context.
+8.12.2 PRODUCT DETAIL PAGE LAYOUT
+PRODUCT DETAIL PAGE STRUCTURE
+
+════════════════════════════════════════════════════════════════
+┌─────────────────────────────────────────────────────────────────┐
+
+│  Header Breadcrumb: Products > Category > Product Name          │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Product Hero Banner                                            │
+
+│  ┌─────────────────────────────────────────────────────────┐   │
+
+│  │ [Product Icon 64px] Product Name         Category Chip  │   │
+
+│  │                     Bank Name                           │   │
+
+│  │                     ★★★★☆ 4.2 (2,341 reviews)          │   │
+
+│  │                     [✦ AI Recommended for you]           │   │
+
+│  └─────────────────────────────────────────────────────────┘   │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Sticky Tab Navigation (within page)                           │
+
+│  [Overview] [Features] [Eligibility] [EMI Calculator] [Reviews] │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Tab Content Area                   │ Sticky Apply Sidebar     │
+
+│                                     │  ┌───────────────────┐   │
+
+│  Overview Tab:                      │  │ Key Rate / Amount  │   │
+
+│  • Key metrics grid (4 tiles)       │  │                   │   │
+
+│  • Product description              │  │ [Apply Now]        │   │
+
+│  • Key features summary             │  │ [Check Eligibility]│   │
+
+│                                     │  │ [Save 🔖]          │   │
+
+│  Features Tab:                      │  │ [Compare ⚖️]       │   │
+
+│  • Full features list               │  │                   │   │
+
+│  • Feature comparison with similar  │  │ [💬 Ask AI Copilot]│   │
+
+│                                     │  └───────────────────┘   │
+
+│  Eligibility Tab:                   │                          │
+
+│  • Eligibility criteria list        │                          │
+
+│  • EligibilityChecker component     │                          │
+
+│                                     │                          │
+
+│  EMI Calculator Tab:                │                          │
+
+│  • EMICalculator component          │                          │
+
+│                                     │                          │
+
+│  Reviews Tab:                       │                          │
+
+│  • Star rating summary              │                          │
+
+│  • Customer reviews list            │                          │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Similar Products Section                                       │
+
+│  "You might also like" → 4 ProductCard (compact, horizontal)   │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  AI Copilot Widget (Section 7)                                  │
+
+└─────────────────────────────────────────────────────────────────┘
+8.12.3 STICKY TAB NAVIGATION
+├── Position: Sticks below header when user scrolls past hero
+
+├── Active tab: Underline + bold
+
+├── Scroll spy: Active tab updates as user scrolls through sections
+
+└── Click: Smooth scroll to section anchor
+8.12.4 PRODUCT REVIEWS SECTION
+Source: product.reviews[] from GET /products/{productId}
+
+├── Summary: Average star rating + total review count
+
+├── Rating distribution: Bar chart (5★ through 1★ with count per level)
+
+├── Review list: Each review card shows:
+
+│    ├── Star rating
+
+│    ├── Review title
+
+│    ├── Review body (truncated to 3 lines, "Read more" expand)
+
+│    ├── Reviewer first name + masked last name (e.g. "Priya S.")
+
+│    └── Date
+
+├── Pagination: Load 5 reviews, "Load more" CTA
+
+└── Sort: "Most recent" (default) / "Most helpful"
+"✦ AI Recommended for you" Badge:
+
+├── Visible only if product exists in customer's recommendation list
+
+├── Links to /customer/recommendations/{recId}
+
+└── Badge label: "✦ {matchScore}% AI Match for you"
+════════════════════════════════════════════════════════════════
+
+8.13 PRODUCT CTA BEHAVIOUR
+
+════════════════════════════════════════════════════════════════
+8.13.1 APPLY NOW CTA FLOW
+"Apply Now" Button — Complete Decision Tree:
+Step 1: Authentication Check
+
+└── If not authenticated → Redirect to /auth/login?returnUrl={currentPath}
+Step 2: KYC Status Check (from auth store, Section 4)
+
+├── KYC status: APPROVED → Proceed to Step 3
+
+├── KYC status: PENDING → Show modal: "Your KYC is under review. We'll notify you when approved."
+
+├── KYC status: REJECTED → Show modal: "KYC rejected. Please re-upload documents." [Go to KYC]
+
+└── KYC status: NOT_STARTED → Show modal: "Complete KYC to apply" [Start KYC] → /customer/kyc?returnUrl={applyUrl}
+Step 3: Eligibility Pre-check
+
+├── If eligibilityStatus === LIKELY_ELIGIBLE → Proceed directly to application
+
+├── If eligibilityStatus === CHECK_ELIGIBILITY → Show eligibility check (8.8) first
+
+│    Customer can choose to continue after seeing results
+
+├── If eligibilityStatus === MAY_NOT_QUALIFY → Show warning modal:
+
+│    "You may not fully qualify. Applying may result in rejection.
+
+│     Do you still want to proceed?"
+
+│    [Proceed Anyway] [See Alternatives]
+
+└── If eligibilityStatus === NOT_ELIGIBLE → Button is disabled (8.4.4)
+Step 4: Navigate to Application Page
+
+└── Navigate to: /customer/products/{productId}/apply
+
+├── Route defined in Section 2
+
+├── Carries: productId, recId (if from recommendation)
+
+└── Application flow continues in Section 9 (upcoming)
+8.13.2 SAVE CTA BEHAVIOUR
+├── API: PUT /recommendations/{recId}/save
+
+├── Optimistic UI: Toggle saved state immediately
+
+├── Toast (success): "Saved to your list" + "View saved →" action
+
+├── Toast (unsave): "Removed from saved"
+
+├── Error: Toast "Could not save. Please try again." + revert state
+
+└── Saved items accessible at: /customer/recommendations?tab=saved
+8.13.3 COMPARE CTA BEHAVIOUR
+├── First product added: Show sticky comparison bar (8.6.2)
+
+├── Second product added: Enable "Compare Now" button
+
+├── Third product added: Disable additional compare buttons on other cards
+
+│    with tooltip: "Remove a product to add another"
+
+├── "Compare Now": Navigate to /customer/recommendations/compare
+
+└── Remove from bar: Remove product from comparison store
+8.13.4 DISMISS CTA BEHAVIOUR
+Dismiss is accessible via:
+
+├── Kebab menu (⋮) on recommendation card → "Not interested"
+
+├── Swipe left on mobile (optional gesture)
+Dismiss Flow:
+
+├── API: PUT /recommendations/{recId}/dismiss
+
+├── Optimistic UI: Animate card out of grid
+
+├── Undo Toast: "Product removed" + [Undo] link (5 second window)
+
+├── Undo action: PUT /recommendations/{recId}/restore
+
+└── After undo window: Dismissal is permanent in current session
+
+(Backend may re-surface after recommendation refresh cycle)
+════════════════════════════════════════════════════════════════
+
+8.14 RECOMMENDATION TIMELINE
+
+════════════════════════════════════════════════════════════════
+8.14.1 TIMELINE CONCEPT
+The Recommendation Timeline shows the customer a chronological
+
+history of how their recommendations have evolved — what was
+
+recommended when, what they applied for, what they saved.
+Location: /customer/recommendations?tab=timeline
+
+Component: RecommendationDetails (timeline view)
+8.14.2 TIMELINE LAYOUT
+RECOMMENDATION TIMELINE VIEW
+
+════════════════════════════════════════════════════════════════
+┌─────────────────────────────────────────────────────────────────┐
+
+│  Tabs: [Current] [Saved] [Timeline] [Dismissed]                 │
+
+├─────────────────────────────────────────────────────────────────┤
+
+│  Timeline (chronological, newest first)                         │
+
+│                                                                 │
+
+│  ● January 2024                                                 │
+
+│  │                                                              │
+
+│  ├── 🔵 Jan 20 — SBI Home Loan recommended (✦ 94% Match)       │
+
+│  │          You viewed this product 3 times                     │
+
+│  │          [View Details]                                      │
+
+│  │                                                              │
+
+│  ├── 🟢 Jan 18 — Applied for HDFC Personal Loan                │
+
+│  │          Status: Under Review                               │
+
+│  │          [View Application]                                 │
+
+│  │                                                              │
+
+│  ├── 🔖 Jan 15 — Saved: Axis Bank Credit Card (✦ 81%)         │
+
+│  │          [View Details]                                      │
+
+│  │                                                              │
+
+│  ├── ❌ Jan 10 — Dismissed: Kotak Personal Loan               │
+
+│  │          [Restore]                                           │
+
+│  │                                                              │
+
+│  ● December 2023                                                │
+
+│  │                                                              │
+
+│  ├── 🔵 Dec 28 — New Baby Insurance recommended               │
+
+│  │          Based on life event: New Baby                      │
+
+│  │          [View Details]                                      │
+
+└─────────────────────────────────────────────────────────────────┘
+8.14.3 TIMELINE EVENT TYPES
+Event Type       | Icon  | Description
+
+─────────────────┼───────┼────────────────────────────────────────
+
+RECOMMENDED      | 🔵    | Product was AI-recommended to customer
+
+VIEWED           | 👁️    | Customer viewed product detail
+
+SAVED            | 🔖    | Customer saved recommendation
+
+APPLIED          | 🟢    | Customer submitted application
+
+DISMISSED        | ❌    | Customer dismissed recommendation
+
+ELIGIBILITY_RUN  | 🔍    | Customer ran eligibility check
+
+OFFER_RECEIVED   | 🎁    | Bank issued offer on application
+
+OFFER_ACCEPTED   | ✅    | Customer accepted bank offer
+8.14.4 TIMELINE API SOURCE
+├── Source: GET /recommendations/{customerId} with history flag
+
+├── Also merges: GET /applications/{customerId} for application events
+
+├── Client merges and sorts by timestamp DESC
+
+└── Grouped by month (client-side grouping)
+════════════════════════════════════════════════════════════════
+
+8.15 SAVED RECOMMENDATIONS
+
+════════════════════════════════════════════════════════════════
+8.15.1 SAVED RECOMMENDATIONS TAB
+Route: /customer/recommendations?tab=saved
+
+API: GET /recommendations/{customerId}/saved
+
+Component: RecommendationsPage (saved tab view)
+Layout:
+
+├── Same grid layout as main recommendations tab
+
+├── Uses RecommendationCard (same component)
+
+├── Empty state: If no saved items (Section 8.18)
+
+└── Sort: Saved date (newest first, default)
+Card Differences in Saved View:
+
+├── Bookmark icon: Always filled (blue)
+
+├── Additional meta: "Saved on {date}"
+
+└── "Unsave" action replaces "Save" in kebab menu
+Saved Recommendations Limit:
+
+├── Backend may enforce max saved count (backend-controlled)
+
+├── If limit reached: Toast "You can save up to {limit} products"
+
+└── Prompt: "Remove saved items to add more"
+════════════════════════════════════════════════════════════════
+
+8.16 RECENTLY VIEWED PRODUCTS
+
+════════════════════════════════════════════════════════════════
+8.16.1 RECENTLY VIEWED TRACKING
+Trigger: Any product detail page view (recommendation detail or product detail)
+
+Storage: Local store (recentlyViewed array, persisted to localStorage)
+
+Max items: 10 (oldest removed when limit reached)
+
+API: POST /analytics/events (productView event — Kafka consumed)
+8.16.2 RECENTLY VIEWED DISPLAY
+Locations:
+
+├── RecommendationsPage: Horizontal scroll row at bottom (max 4 visible)
+
+├── ProductsPage: Horizontal scroll row at top (max 4 visible)
+
+└── Dashboard: Widget in Section 6 (as defined)
+Recently Viewed Card (Compact Variant):
+
+├── Product icon (36×36px)
+
+├── Product name (1 line, truncated)
+
+├── Category chip
+
+├── Time since viewed (e.g. "Viewed 2 hours ago")
+
+└── Click → Navigate to product detail page
+Clear History:
+
+├── "Clear history" text link beside section title
+
+├── Clears localStorage recentlyViewed
+
+└── No API call (client-side only)
+════════════════════════════════════════════════════════════════
+
+8.17 PRODUCT ANALYTICS
+
+════════════════════════════════════════════════════════════════
+8.17.1 ANALYTICS EVENTS — KAFKA CONSUMED
+All frontend events fire to POST /analytics/events.
+
+Backend consumes these via Kafka and routes to analytics pipeline.
+
+No new Kafka topics. All events use existing event schema.
+PRODUCT ANALYTICS EVENTS TABLE
+
+════════════════════════════════════════════════════════════════
+Event Name                   | Trigger                            | Key Properties
+
+─────────────────────────────┼────────────────────────────────────┼──────────────────────────────────────
+
+RECOMMENDATION_PAGE_VIEW     | RecommendationsPage load           | customerId, lifeEventContext, recCount
+
+PRODUCT_CARD_VIEW            | Recommendation card rendered       | productId, recId, matchScore, position
+
+PRODUCT_DETAIL_VIEW          | Product/Rec detail page opened     | productId, recId, source (rec|catalog)
+
+RECOMMENDATION_SAVED         | Save button clicked                | productId, recId, matchScore
+
+RECOMMENDATION_DISMISSED     | Dismiss action taken               | productId, recId, reason
+
+COMPARISON_STARTED           | First product added to comparison  | customerId
+
+COMPARISON_COMPLETED         | Compare Now clicked                | productIds[], comparisonCount
+
+ELIGIBILITY_CHECK_STARTED    | Check eligibility CTA clicked      | productId, recId
+
+ELIGIBILITY_RESULT_VIEWED    | Eligibility result displayed       | productId, result, criteriaMetCount
+
+AI_EXPLANATION_VIEWED        | "Why this?" panel expanded         | productId, recId
+
+APPLY_NOW_CLICKED            | Apply Now button clicked           | productId, recId, eligibilityStatus
+
+APPLY_BLOCKED_KYC            | Apply blocked by KYC guard         | productId, kycStatus
+
+FILTER_APPLIED               | Any filter changed                 | filterKey, filterValue
+
+SEARCH_QUERY_SUBMITTED       | Search triggered                   | query, resultsCount
+
+PRODUCT_SHARE_CLICKED        | Share product action (if present)  | productId
+8.17.2 ANALYTICS EVENT PAYLOAD STRUCTURE
+Standard event payload (all events):
+
+├── eventName: string (from table above)
+
+├── customerId: string
+
+├── sessionId: string (from auth store)
+
+├── timestamp: ISO 8601
+
+├── platform: "web"
+
+├── pageUrl: current route path
+
+└── properties: {} (event-specific, from Key Properties column above)
+8.17.3 ANALYTICS FIRE TIMING
+├── Page view events: Fire on component mount
+
+├── Card view events: Fire using IntersectionObserver (only when card is 50% visible)
+
+├── Interaction events: Fire on user action (click, submit)
+
+└── Throttle: Duplicate events within 1 second are suppressed
+════════════════════════════════════════════════════════════════
+
+8.18 EMPTY STATES
+
+════════════════════════════════════════════════════════════════
+8.18.1 EMPTY STATE DEFINITIONS
+Each empty state uses the EmptyState component (Section 1, shared/components/feedback/).
+
+Illustrations sourced from /public/assets/illustrations/empty-states/ (Section 1).
+EMPTY STATE CATALOGUE
+
+════════════════════════════════════════════════════════════════
+Scenario                     | Illustration Key        | Title                               | Subtitle                                                              | CTA
+
+─────────────────────────────┼─────────────────────────┼─────────────────────────────────────┼───────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────
+
+No recommendations yet        | no-recommendations      | "No recommendations yet"            | "Complete your profile so BankMate AI can find the best products for you." | [Complete Profile] → /customer/onboarding
+
+Category has no results       | no-category-results     | "No {category} recommendations"     | "Your AI advisor will surface {category} products as your profile evolves." | [View All Products]
+
+Saved list is empty           | no-saved-items          | "No saved products yet"             | "Bookmark products you like and find them here."                       | [Explore Recommendations]
+
+No search results             | no-search-results       | "No results for '{query}'"          | "Try a different search term or browse our catalog."                   | [Browse Products] [Clear Search]
+
+Timeline is empty             | no-timeline             | "Your recommendation history is empty" | "Products recommended for you will appear here over time."           | [Explore Products]
+
+No recently viewed            | no-recently-viewed      | "You haven't viewed any products"   | "Browse products to see your viewing history here."                   | [Explore Products]
+
+All dismissed                 | all-dismissed           | "You dismissed all recommendations" | "Your AI advisor is learning from this. New recommendations coming soon." | [Restore Dismissed] [Refresh]
+
+Comparison list empty         | no-comparison           | "Nothing to compare yet"            | "Add up to 3 products to compare them side by side."                  | [Browse Products]
+════════════════════════════════════════════════════════════════
+
+8.19 ERROR STATES
+
+════════════════════════════════════════════════════════════════
+8.19.1 ERROR STATE DEFINITIONS
+Component: ErrorState (Section 1, shared/components/feedback/ErrorState.tsx)
+ERROR STATE CATALOGUE
+
+════════════════════════════════════════════════════════════════
+Error Scenario                | HTTP Code | Title                              | Subtitle                                              | CTA
+
+──────────────────────────────┼───────────┼────────────────────────────────────┼───────────────────────────────────────────────────────┼─────────────────────────────
+
+Recommendations failed to load| 500 / net | "Couldn't load recommendations"    | "Something went wrong. Your data is safe."            | [Try Again] [Go to Dashboard]
+
+Product detail failed         | 404       | "Product not found"                | "This product may have been discontinued."            | [← Back to Products]
+
+Product detail failed         | 500 / net | "Couldn't load product details"    | "Something went wrong. Please try again."             | [Try Again]
+
+Eligibility check failed      | 500 / net | "Eligibility check unavailable"    | "Our AI is momentarily unavailable. Try again shortly." | [Retry]
+
+Save action failed            | any       | Toast only: "Could not save"       | —                                                     | [Retry]
+
+AI explanation failed         | any       | "Explanation unavailable"          | "Our AI is busy right now. Try again in a moment."    | [Retry]
+
+Comparison load failed        | any       | "Couldn't load comparison"         | "Please try again or compare fewer products."         | [Try Again]
+
+Search failed                 | any       | "Search is temporarily unavailable"| "Please try browsing products instead."               | [Browse Products]
+8.19.2 ERROR RECOVERY PATTERNS
+All error states include:
+
+├── Error illustration (from Section 1 error-states asset set)
+
+├── Error title (human-friendly, no technical codes shown to user)
+
+├── Subtitle with guidance
+
+├── Primary CTA (retry or navigate away)
+
+├── Optional secondary CTA (dashboard or browse)
+
+└── If network error: "Check your internet connection" shown as extra hint
+Auto-Retry:
+
+├── Recommendation list: Auto-retry once after 5 seconds on network error
+
+├── AI explanation: No auto-retry (user-initiated only)
+
+└── Product detail: No auto-retry
+════════════════════════════════════════════════════════════════
+
+8.20 LOADING STATES
+
+════════════════════════════════════════════════════════════════
+8.20.1 LOADING STATE DEFINITIONS
+LOADING STATE CATALOGUE
+
+════════════════════════════════════════════════════════════════
+Scenario                       | Component          | Strategy
+
+───────────────────────────────┼────────────────────┼─────────────────────────────────────────────
+
+Recommendation list loading    | RecommendationsPage| 6 skeleton cards (grid layout) with shimmer
+
+Product catalog loading        | ProductsPage       | 8 skeleton cards (grid layout) with shimmer
+
+Product detail loading         | ProductDetailsPage | Hero skeleton + tab skeleton + sidebar skeleton
+
+Eligibility check in progress  | EligibilityChecker | Spinner animation + "Checking…" text
+
+AI explanation loading         | AI Explanation     | Typing dots animation + "BankMate AI is thinking…"
+
+Save action in progress        | RecommendationCard | Bookmark icon spins momentarily
+
+Comparison table loading       | ComparisonPage     | Column skeletons per product
+
+Search suggestions loading     | Search dropdown    | 3 skeleton rows in dropdown
+
+Filter applying                | ProductGrid        | Subtle opacity fade + spinner overlay
+8.20.2 SKELETON CARD SPECIFICATION
+Skeleton Recommendation Card:
+
+├── Uses Skeleton component (Section 1, shared/components/ui/Skeleton)
+
+├── Elements mimic exact card layout (8.4.2)
+
+├── Shimmer animation: left-to-right wave
+
+├── Color: Gray-100 background with Gray-200 shimmer
+
+└── Duration: Indefinite until data loads
+Stale-While-Revalidate:
+
+├── If store has cached data < 30 min old:
+
+│    Show stale data immediately (no skeleton)
+
+│    Revalidate in background
+
+│    On new data: Smooth update (no flash)
+
+└── If stale data > 30 min: Show skeleton, fetch fresh
+════════════════════════════════════════════════════════════════
+
+8.21 RESPONSIVE BEHAVIOUR
+
+════════════════════════════════════════════════════════════════
+8.21.1 BREAKPOINT REFERENCE (Section 3 — Unchanged)
+├── xs: 0–575px      (mobile portrait)
+
+├── sm: 576–767px    (mobile landscape)
+
+├── md: 768–991px    (tablet)
+
+├── lg: 992–1199px   (desktop)
+
+└── xl: 1200px+      (large desktop)
+8.21.2 RESPONSIVE LAYOUT ADAPTATIONS
+RECOMMENDATIONS PAGE
+
+════════════════════════════════════════════════════════════════
+Element                    | xs/sm (Mobile)                | md (Tablet)              | lg/xl (Desktop)
+
+───────────────────────────┼───────────────────────────────┼──────────────────────────┼─────────────────────────
+
+Recommendation grid        | 1 column                      | 2 columns                | 3 columns
+
+Category filter tabs       | Horizontal scroll             | Horizontal scroll        | Full row
+
+Sort dropdown              | Bottom sheet                  | Inline dropdown          | Inline dropdown
+
+Life event banner          | Full width, compact           | Full width               | Full width
+
+Hero section               | Stacked, compact              | Stacked                  | Full horizontal
+
+Search bar                 | Full width                    | Full width               | 50% width
+PRODUCT DETAIL PAGE
+
+════════════════════════════════════════════════════════════════
+Element                    | xs/sm (Mobile)                | md (Tablet)              | lg/xl (Desktop)
+
+───────────────────────────┼───────────────────────────────┼──────────────────────────┼─────────────────────────
+
+Two-column layout          | Single column (stacked)       | Single column            | Two columns
+
+Sticky apply sidebar       | Fixed bottom bar              | Fixed bottom bar         | Right column sticky
+
+Tab navigation             | Horizontal scroll tabs        | Full tab row             | Full tab row
+
+EMI calculator             | Full width card               | Full width card          | Within left column
+
+Comparison table           | Horizontal scroll             | Horizontal scroll        | Full width table
+PRODUCT COMPARISON PAGE
+
+════════════════════════════════════════════════════════════════
+Element                    | xs/sm (Mobile)                | md (Tablet)              | lg/xl (Desktop)
+
+───────────────────────────┼───────────────────────────────┼──────────────────────────┼─────────────────────────
+
+Comparison table           | Horizontal scroll, 2 cols max | Horizontal scroll        | Full 3-column table
+
+Feature column             | Sticky left                   | Sticky left              | Sticky left
+
+Product headers            | Scroll horizontally           | Scroll horizontally      | Fixed 3 columns
+8.21.3 MOBILE-SPECIFIC PATTERNS
+Recommendation Card (Mobile):
+
+├── Full width (1 column grid)
+
+├── CTA buttons: Full width, stacked vertically
+
+├── Save + Compare icons: Row below CTA buttons
+
+└── Swipe left: Reveal dismiss action
+Filter Access (Mobile):
+
+├── No sidebar on mobile (ProductsPage)
+
+├── Filter button in header → Opens filter bottom sheet
+
+├── Bottom sheet: Scrollable, full-screen overlay
+
+└── "Apply Filters" button at bottom of sheet
+Sticky Comparison Bar (Mobile):
+
+├── Height: 72px
+
+├── Product chips: Icon only (no product name) on xs
+
+└── "Compare" button: Full width
+Sticky Apply Bar (Mobile — Product Detail):
+
+├── Replaces right column sticky sidebar
+
+├── Fixed to bottom of screen
+
+├── Height: 64px
+
+├── Layout: Price/rate on left, [Apply Now] button on right
+
+└── Hides when user is at top of page (before scrolling past hero)
+════════════════════════════════════════════════════════════════
+
+8.22 ACCESSIBILITY
+
+════════════════════════════════════════════════════════════════
+8.22.1 ACCESSIBILITY STANDARDS
+Standard: WCAG 2.1 Level AA (minimum)
+
+Screen Reader Support: NVDA, JAWS, VoiceOver, TalkBack
+
+Keyboard Navigation: Full support on all interactive elements
+
+Focus Management: Visible focus ring on all interactive elements
+
+Color Contrast: Minimum 4.5:1 for normal text, 3:1 for large text
+8.22.2 RECOMMENDATION CARD ACCESSIBILITY
+├── Card: role="article" with aria-label="{productName} recommendation"
+
+├── Match score: aria-label="Match score: {score}%"
+
+├── Affordability bar: role="progressbar" aria-valuenow="{score}" aria-valuemin="0" aria-valuemax="100"
+
+├── Apply Now button: aria-label="Apply for {productName}"
+
+├── Save button: aria-label="Save {productName}" aria-pressed="{saved|true|false}"
+
+├── Compare button: aria-label="Add {productName} to comparison" aria-pressed="{selected|true|false}"
+
+└── Dismiss: aria-label="Dismiss {productName} recommendation"
+8.22.3 ELIGIBILITY VISUALIZATION ACCESSIBILITY
+├── Eligibility status: role="status" aria-live="polite" (updates announced)
+
+├── Criteria list: role="list" with role="listitem" per criterion
+
+├── Loading state: aria-busy="true" aria-label="Checking eligibility…"
+
+└── Result icons (✅/⚠️/❌): aria-hidden="true" with adjacent text label
+8.22.4 COMPARISON TABLE ACCESSIBILITY
+├── Table: role="table" with proper thead/tbody structure
+
+├── Feature column header: scope="col"
+
+├── Product headers: scope="col"
+
+├── Feature row header: scope="row"
+
+└── Best value cell: aria-label="{value} — Best option"
+8.22.5 FILTER ACCESSIBILITY
+├── Category tabs: role="tablist" + role="tab" per tab
+
+├── Active tab: aria-selected="true"
+
+├── Filter sidebar: role="complementary" aria-label="Product filters"
+
+├── Range slider: aria-label, aria-valuemin, aria-valuemax, aria-valuenow
+
+└── Active filter chips: aria-label="{filterName}: {filterValue}. Press to remove."
+8.22.6 SEARCH ACCESSIBILITY
+├── Search input: role="combobox" aria-expanded="{true|false}" aria-haspopup="listbox"
+
+├── Suggestions dropdown: role="listbox"
+
+├── Each suggestion: role="option"
+
+└── No results: aria-live="polite" announces "No results found"
+8.22.7 KEYBOARD NAVIGATION MAP
+Key             | Action
+
+────────────────┼────────────────────────────────────────────────────
+
+Tab             | Move focus through interactive elements
+
+Shift+Tab       | Move focus backwards
+
+Enter / Space   | Activate button / select option
+
+Arrow keys      | Navigate category tabs / filter options / dropdown
+
+Escape          | Close dropdown / dismiss modal / clear search
+
+Ctrl/Cmd+K      | Open search (global shortcut, Section 3)
+
+Ctrl/Cmd+S      | Save focused recommendation (when card focused)
+════════════════════════════════════════════════════════════════
+
+8.23 MERMAID RECOMMENDATION FLOW
+
+════════════════════════════════════════════════════════════════
+graph TB
+    Start([Customer opens Recommendations]) --> FetchRec[GET /recommendations/{customerId}]
+
+    FetchRec --> CacheCheck{Redis Cache\nFresh?}
+    CacheCheck -->|Yes <5min| RenderFromStore[Render from Store]
+    CacheCheck -->|Stale 5-30min| RenderStale[Render Stale + Revalidate]
+    CacheCheck -->|Expired >30min| ShowSkeleton[Show Skeleton Cards]
+
+    ShowSkeleton --> APICall[API Call to Recommendation Engine]
+    RenderStale --> APICall
+    APICall --> EngineProcess[Recommendation Engine\nScores Products]
+    EngineProcess --> QualAgent[QualificationAgent\nPre-evaluates Eligibility]
+    QualAgent --> FinAgent[FinancialAnalysisAgent\nAffordability Score]
+    FinAgent --> ReturnList[Return Ranked Rec List]
+    ReturnList --> RenderGrid[Render Recommendation Grid]
+    RenderFromStore --> RenderGrid
+
+    RenderGrid --> LifeEventCheck{Life Event\nDetected?}
+    LifeEventCheck -->|Yes| ShowBanner[Show Life Event\nContext Banner]
+    LifeEventCheck -->|No| HideBanner[No Banner]
+
+    ShowBanner --> CardInteraction
+    HideBanner --> CardInteraction
+
+    CardInteraction{Customer\nInteraction}
+
+    CardInteraction -->|View Details| RecDetail[Recommendation Detail Page\nGET /recommendations/{recId}]
+    CardInteraction -->|Apply Now| ApplyCTA[Apply Now CTA Flow\nSection 8.13]
+    CardInteraction -->|Save| SaveRec[PUT /recommendations/{recId}/save\nOptimistic Update]
+    CardInteraction -->|Compare| AddToComparison[Add to Comparison Store\nSticky Bar Appears]
+    CardInteraction -->|Dismiss| DismissRec[PUT /recommendations/{recId}/dismiss\nAnimate Out]
+    CardInteraction -->|Why this?| AIExplain[POST /chat/send-message\nConversationalAgent]
+
+    RecDetail --> RightPanel[Right Panel\nAI Match Panel]
+    RightPanel --> MatchBreakdown[Match Score Breakdown\nSub-scores Display]
+    RightPanel --> EligCheck[EligibilityChecker\nPOST /eligibility/check]
+    RightPanel --> Affordability[Affordability Block\nEMI vs Income]
+    RightPanel --> StickyApply[Sticky Apply Button]
+
+    EligCheck --> EligResult{Eligibility\nResult}
+    EligResult -->|LIKELY_ELIGIBLE| GreenStatus[✅ Likely Eligible\nEnable Apply]
+    EligResult -->|MAY_NOT_QUALIFY| AmberStatus[⚠️ May Not Qualify\nWarn then Apply]
+    EligResult -->|NOT_ELIGIBLE| RedStatus[❌ Not Eligible\nShow Alternatives]
+
+    AddToComparison --> CompCount{Count ≥ 2?}
+    CompCount -->|Yes| EnableCompare[Enable Compare Now Button]
+    CompCount -->|No| WaitForMore[Wait for More Selections]
+    EnableCompare --> CompareNow[Navigate to /compare\nGET /products?ids=...]
+    CompareNow --> CompareTable[Render Comparison Table\nBest Value Highlights]
+
+    ApplyCTA --> KYCCheck{KYC\nStatus?}
+    KYCCheck -->|APPROVED| EligPreCheck[Eligibility Pre-Check]
+    KYCCheck -->|NOT_STARTED| KYCModal[Show KYC Modal\nRedirect to KYC]
+    KYCCheck -->|PENDING| PendingModal[Show Pending Modal]
+    EligPreCheck --> AppPage[Navigate to Application Page\n/products/{id}/apply]
+
+    AIExplain --> ExplainPanel[Render AI Explanation\nBullet Points]
+    ExplainPanel --> FollowUp[Follow-Up → AI Copilot\nSection 7]
+
+    SaveRec --> SaveToast[Toast: Saved to your list]
+    DismissRec --> UndoToast[Toast: Removed + Undo\n5 second window]
+════════════════════════════════════════════════════════════════
+
+8.24 SEQUENCE DIAGRAM
+
+════════════════════════════════════════════════════════════════
+Kafka (Analytics)Redis CacheConversationalAgentFinancialAnalysisAgentQualificationAgentRecommendation EngineBankMate APIRedux StoreCustomer BrowserKafka (Analytics)Redis CacheConversationalAgentFinancialAnalysisAgentQualificationAgentRecommendation EngineBankMate APIRedux StoreCustomer Browser#mermaid-rhf-r236 { font-family: "Anthropic Sans", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; fill: rgb(25, 25, 25); }
+#mermaid-rhf-r236 .edge-animation-slow { stroke-dashoffset: 900; animation: 50s linear 0s infinite normal none running dash; stroke-linecap: round; stroke-dasharray: 9, 5 !important; }
+#mermaid-rhf-r236 .edge-animation-fast { stroke-dashoffset: 900; animation: 20s linear 0s infinite normal none running dash; stroke-linecap: round; stroke-dasharray: 9, 5 !important; }
+#mermaid-rhf-r236 .error-icon { fill: rgb(204, 120, 92); }
+#mermaid-rhf-r236 .error-text { fill: rgb(51, 135, 163); stroke: rgb(51, 135, 163); }
+#mermaid-rhf-r236 .edge-thickness-normal { stroke-width: 1px; }
+#mermaid-rhf-r236 .edge-thickness-thick { stroke-width: 3.5px; }
+#mermaid-rhf-r236 .edge-pattern-solid { stroke-dasharray: 0; }
+#mermaid-rhf-r236 .edge-thickness-invisible { stroke-width: 0; fill: none; }
+#mermaid-rhf-r236 .edge-pattern-dashed { stroke-dasharray: 3; }
+#mermaid-rhf-r236 .edge-pattern-dotted { stroke-dasharray: 2; }
+#mermaid-rhf-r236 .marker { fill: rgb(145, 145, 141); stroke: rgb(145, 145, 141); }
+#mermaid-rhf-r236 .marker.cross { stroke: rgb(145, 145, 141); }
+#mermaid-rhf-r236 svg { font-family: "Anthropic Sans", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; }
+#mermaid-rhf-r236 p { margin: 0px; }
+#mermaid-rhf-r236 .actor { stroke: rgb(217, 216, 213); fill: rgb(240, 240, 235); stroke-width: 1; }
+#mermaid-rhf-r236 rect.actor.outer-path[data-look="neo"] { filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-rhf-r236 rect.note[data-look="neo"] { stroke: rgb(217, 216, 213); fill: rgb(240, 240, 235); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-rhf-r236 text.actor > tspan { fill: rgb(25, 25, 25); stroke: none; }
+#mermaid-rhf-r236 .actor-line { stroke: rgb(145, 145, 141); }
+#mermaid-rhf-r236 .innerArc { stroke-width: 1.5; stroke-dasharray: none; }
+#mermaid-rhf-r236 .messageLine0 { stroke-width: 1.5; stroke-dasharray: none; stroke: rgb(25, 25, 25); }
+#mermaid-rhf-r236 .messageLine1 { stroke-width: 1.5; stroke-dasharray: 2, 2; stroke: rgb(25, 25, 25); }
+#mermaid-rhf-r236 [id$="-arrowhead"] path { fill: rgb(25, 25, 25); stroke: rgb(25, 25, 25); }
+#mermaid-rhf-r236 .sequenceNumber { fill: rgb(110, 110, 114); }
+#mermaid-rhf-r236 [id$="-sequencenumber"] { fill: rgb(25, 25, 25); }
+#mermaid-rhf-r236 [id$="-crosshead"] path { fill: rgb(25, 25, 25); stroke: rgb(25, 25, 25); }
+#mermaid-rhf-r236 .messageText { fill: rgb(25, 25, 25); stroke: none; }
+#mermaid-rhf-r236 .labelBox { stroke: rgb(217, 216, 213); fill: rgb(240, 240, 235); filter: none; }
+#mermaid-rhf-r236 .labelText, #mermaid-rhf-r236 .labelText > tspan { fill: rgb(25, 25, 25); stroke: none; }
+#mermaid-rhf-r236 .loopText, #mermaid-rhf-r236 .loopText > tspan { fill: rgb(25, 25, 25); stroke: none; }
+#mermaid-rhf-r236 .sectionTitle, #mermaid-rhf-r236 .sectionTitle > tspan { fill: rgb(25, 25, 25); stroke: none; }
+#mermaid-rhf-r236 .loopLine { stroke-width: 2px; stroke-dasharray: 2, 2; stroke: rgb(217, 216, 213); fill: rgb(217, 216, 213); }
+#mermaid-rhf-r236 .note { stroke: rgb(217, 216, 213); fill: rgb(240, 240, 235); }
+#mermaid-rhf-r236 .noteText, #mermaid-rhf-r236 .noteText > tspan { fill: rgb(25, 25, 25); stroke: none; font-weight: normal; }
+#mermaid-rhf-r236 .activation0 { fill: rgb(245, 230, 216); stroke: rgb(235, 204, 175); }
+#mermaid-rhf-r236 .activation1 { fill: rgb(245, 230, 216); stroke: rgb(235, 204, 175); }
+#mermaid-rhf-r236 .activation2 { fill: rgb(245, 230, 216); stroke: rgb(235, 204, 175); }
+#mermaid-rhf-r236 .actorPopupMenu { position: absolute; }
+#mermaid-rhf-r236 .actorPopupMenuPanel { position: absolute; fill: rgb(240, 240, 235); box-shadow: rgba(0, 0, 0, 0.2) 0px 8px 16px 0px; filter: drop-shadow(rgba(0, 0, 0, 0.4) 3px 5px 2px); }
+#mermaid-rhf-r236 .actor-man circle, #mermaid-rhf-r236 line { fill: rgb(240, 240, 235); stroke-width: 2px; }
+#mermaid-rhf-r236 g rect.rect { filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); stroke: rgb(217, 216, 213); }
+#mermaid-rhf-r236 .node .neo-node { stroke: rgb(217, 216, 213); }
+#mermaid-rhf-r236 [data-look="neo"].node rect, #mermaid-rhf-r236 [data-look="neo"].cluster rect, #mermaid-rhf-r236 [data-look="neo"].node polygon { stroke: url("#mermaid-rhf-r236-gradient"); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-rhf-r236 [data-look="neo"].node path { stroke: url("#mermaid-rhf-r236-gradient"); stroke-width: 1px; }
+#mermaid-rhf-r236 [data-look="neo"].node .outer-path { filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-rhf-r236 [data-look="neo"].node .neo-line path { stroke: rgb(217, 216, 213); filter: none; }
+#mermaid-rhf-r236 [data-look="neo"].node circle { stroke: url("#mermaid-rhf-r236-gradient"); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-rhf-r236 [data-look="neo"].node circle .state-start { fill: rgb(0, 0, 0); }
+#mermaid-rhf-r236 [data-look="neo"].icon-shape .icon { fill: url("#mermaid-rhf-r236-gradient"); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-rhf-r236 [data-look="neo"].icon-shape .icon-neo path { stroke: url("#mermaid-rhf-r236-gradient"); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-rhf-r236 :root { --mermaid-font-family: "Anthropic Sans",system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }Recommendation Page Load Flowalt[Redis hit][Redis miss]alt[Cache fresh (<5 min)][Cache stale or expired]Card Interaction — Eligibility Checkalt[Redis hit][Redis miss]AI Explanation FlowSave Recommendation Flowalt[Success][Failure]Compare FlowApply Now Flowalt[LIKELY_ELIGIBLE][MAY_NOT_QUALIFY]alt[KYC Approved][KYC Not Started]Dispatch fetchRecommendations(customerId)Check lastFetched timestampRender from store (no API call)GET /recommendations/{customerId}Read recommendations:{customerId}Cached recommendation listScore products for customerEvaluate eligibility per productEligibility resultsCompute affordability scoresAffordability resultsRanked recommendation listWrite recommendations:{customerId} TTL:30minRecommendation list + metadataRender recommendation gridPOST /analytics/events (RECOMMENDATION_PAGE_VIEW)POST /eligibility/check {productId, customerId}Run eligibility checkRead eligibility:{customerId}:{productId}Cached eligibility resultEvaluate criteriaWrite eligibility cache TTL:15minEligibilityResultEligibility result payloadUpdate eligibility resultsRender eligibility status in card/panelPOST /analytics/events (ELIGIBILITY_CHECK_STARTED)POST /chat/send-message {intent: EXPLAIN_RECOMMENDATION, context: {productId, recId}}Route to ConversationalAgentNatural language explanationExplanation textRender AI explanation panelPOST /analytics/events (AI_EXPLANATION_VIEWED)Optimistic update (bookmark filled)PUT /recommendations/{recId}/save200 OKPOST /analytics/events (RECOMMENDATION_SAVED)Show toast "Saved to your list"Error responseRevert optimistic updateShow error toastaddToComparison(product) [x2 or x3]Show sticky comparison barGET /products?ids={id1,id2,id3}Product detail arrayRender comparison table with highlightsPOST /analytics/events (COMPARISON_COMPLETED)Read KYC status from auth storeRead eligibilityStatus for productNavigate to /products/{id}/applyShow warning modal → Proceed Anyway or AlternativesShow KYC modal → Navigate to /customer/kycPOST /analytics/events (APPLY_NOW_CLICKED)
+════════════════════════════════════════════════════════════════
+
+8.25 FUTURE SCALABILITY
+
+════════════════════════════════════════════════════════════════
+8.25.1 PLANNED FRONTEND EXTENSIONS
+The following extensions are noted for future phases.
+
+None are implemented in this section. All must remain
+
+compatible with the existing backend architecture.
+AI-Powered Personalised Recommendation Notifications:
+
+├── When Recommendation Engine detects a new high-match product
+
+├── Kafka event → Push notification → Deep link to recommendation
+
+├── Frontend: Already handles deep link via Section 2 deep linking strategy
+
+└── No new frontend components required (uses existing notification system)
+Recommendation Confidence Trend:
+
+├── Show how match score has improved over time as profile completes
+
+├── Mini sparkline chart on recommendation card (optional future metric)
+
+├── Data source: Existing recommendation history (timeline — 8.14)
+
+└── Frontend: Recharts sparkline within RecommendationCard
+Collaborative Filtering Hints:
+
+├── "Customers similar to you also applied for…" section
+
+├── Data: Backend Recommendation Engine extension (no new agent)
+
+├── Frontend: New horizontal scroll row on RecommendationsPage
+
+└── API: GET /recommendations/{customerId}/collaborative (future endpoint)
+Product Wishlist Sharing:
+
+├── Customer shares saved recommendation list via link
+
+├── Frontend: Share button on saved recommendations tab
+
+├── URL: /recommendations/shared/{shareToken} (public route)
+
+└── Backend: New shareable token endpoint (future, not in scope)
+Voice-Assisted Product Discovery:
+
+├── Customer speaks: "Show me home loans under 9%"
+
+├── Frontend: Voice input on search bar (Web Speech API)
+
+├── Converts to text → existing search flow
+
+└── VoiceEngagementAgent integration already in place (Section 7)
+Augmented Reality EMI Visualiser (Future, aspirational):
+
+├── Customer points phone at property → AR overlay shows estimated EMI
+
+├── Tech: WebXR API
+
+└── Out of scope for current hackathon implementation
+8.25.2 SCALABILITY CONSTRAINTS MAINTAINED
+✅ All recommendation logic stays in backend Recommendation Engine
+
+✅ No frontend scoring or ranking introduced
+
+✅ All eligibility logic remains in QualificationAgent
+
+✅ Cache strategy remains in Redis (backend-managed TTLs)
+
+✅ Analytics events remain Kafka-consumed (no direct DB writes)
+
+✅ AI explanations remain in ConversationalAgent
+
+✅ All new routes will follow Section 2 routing architecture
+
+✅ All new components will follow Section 1 folder structure
+8.25.3 PERFORMANCE TARGETS
+├── Recommendation page first meaningful paint: < 1.5 seconds
+
+├── Recommendation card grid interactive: < 2.5 seconds
+
+├── Eligibility check response: < 3 seconds
+
+├── AI explanation response: < 4 seconds
+
+├── Comparison table render: < 1 second (data already loaded)
+
+└── Search suggestions dropdown: < 500ms (debounced 300ms + API response)
+════════════════════════════════════════════════════════════════
+
+✅ SECTION 8 COMPLIANCE CHECK
+
+════════════════════════════════════════════════════════════════
+COMPLIANCE VERIFICATION
+
+════════════════════════════════════════════════════════════════
+✅ Backend Architecture:       UNCHANGED
+
+✅ Database Schema:            UNCHANGED
+
+✅ API Endpoints:              UNCHANGED (only mapped, not modified)
+
+✅ AI Agents:                  UNCHANGED (RecommendationEngine, QualificationAgent,
+
+FinancialAnalysisAgent, ConversationalAgent,
+
+NextBestActionAgent all consumed, not modified)
+
+✅ Kafka Events:               UNCHANGED (analytics events use existing event schema)
+
+✅ Redis Strategy:             UNCHANGED (existing cache keys and TTLs only)
+
+✅ Business Logic:             UNCHANGED
+
+✅ Routing:                    UNCHANGED (all routes defined in Section 2)
+
+✅ Layout Architecture:        UNCHANGED (CustomerLayout from Section 3)
+
+✅ Authentication:             UNCHANGED (AuthGuard, KYC status from Section 4)
+
+✅ Dashboard Architecture:     UNCHANGED (Section 6 widgets not redefined)
+
+✅ AI Copilot:                 UNCHANGED (Section 7 widget referenced, not modified)
+
+✅ No React Code:              Confirmed
+
+✅ No TypeScript Code:         Confirmed
+
+✅ No CSS Code:                Confirmed
+
+✅ No new AI Agents:           Confirmed
+
+✅ No new Kafka topics:        Confirmed
+
+✅ No new database tables:     Confirmed
+
+✅ No new API endpoints:       Confirmed
+SECTION 8 DELIVERABLES
+
+════════════════════════════════════════════════════════════════
+✅ 8.1  Recommendation Architecture (data flow, state tree, API mapping, cache strategy)
+
+✅ 8.2  Recommendation Landing Experience (layout, hero, life event banner)
+
+✅ 8.3  Recommendation Categories (tabs, filtering, empty category state)
+
+✅ 8.4  Recommendation Cards (anatomy, metrics, CTAs, interaction states, skeletons)
+
+✅ 8.5  Product Discovery Experience (catalog, product card, featured, recently viewed)
+
+✅ 8.6  Product Comparison (sticky bar, comparison table, AI banner)
+
+✅ 8.7  Recommendation Details (two-column layout, left/right panel, EMI calculator)
+
+✅ 8.8  Eligibility Visualization (all states, criteria rows, alternatives module)
+
+✅ 8.9  AI Recommendation Explanation (payload, display, formatting, follow-up)
+
+✅ 8.10 Product Filtering (sort, life event filter, eligibility toggle, sidebar filters)
+
+✅ 8.11 Search Experience (debounce, suggestions dropdown, results page, keyboard nav)
+
+✅ 8.12 Product Detail Journey (tabbed layout, reviews, sticky apply sidebar)
+
+✅ 8.13 Product CTA Behaviour (Apply Now decision tree, Save, Compare, Dismiss flows)
+
+✅ 8.14 Recommendation Timeline (chronological history, event types, API source)
+
+✅ 8.15 Saved Recommendations (tab, card differences, save limit)
+
+✅ 8.16 Recently Viewed Products (tracking, display, clear history)
+
+✅ 8.17 Product Analytics (Kafka event table, payload structure, fire timing)
+
+✅ 8.18 Empty States (8 scenarios fully specified)
+
+✅ 8.19 Error States (8 scenarios + recovery patterns)
+
+✅ 8.20 Loading States (skeletons, stale-while-revalidate)
+
+✅ 8.21 Responsive Behaviour (breakpoint adaptations, mobile patterns)
+
+✅ 8.22 Accessibility (WCAG 2.1 AA, ARIA roles, keyboard map)
+
+✅ 8.23 Mermaid Recommendation Flow (complete graph)
+
+✅ 8.24 Sequence Diagram (complete multi-party sequence)
+
+✅ 8.25 Future Scalability (planned extensions, performance targets)
+════════════════════════════════════════════════════════════════
+SECTION 8 COMPLETED
+
+WAITING FOR APPROVAL

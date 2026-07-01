@@ -1,0 +1,1498 @@
+SECTION 2: ROUTING & NAVIGATION ARCHITECTURE 📋 SECTION METADATA text
+
+Section: 2 - Routing & Navigation Architecture Version: 1.0.0 Status:
+DRAFT - PENDING APPROVAL Dependencies: Section 1 (Project Structure)
+Extends: Existing BankMate AI Backend Architecture Modifications: NONE
+to existing backend/business logic 🎯 SECTION OVERVIEW This section
+defines the complete routing and navigation architecture for the
+BankMate AI frontend application. All routes map to existing backend
+APIs defined in the original blueprint. No business logic is modified.
+
+2.1 COMPLETE ROUTE ARCHITECTURE Route Organization Strategy text
+
+ROUTE HIERARCHY
+════════════════════════════════════════════════════════════════
+
+/ (Root) ├── Public Routes (No Authentication) ├── Auth Routes
+(Login/Register) ├── Customer Routes (Authenticated Customers) ├── Admin
+Routes (Admin Users) ├── Relationship Manager Routes (RM Users) └──
+Error Routes (404, 500, etc.) 2.1.1 PUBLIC ROUTES TypeScript
+
+PUBLIC ROUTES CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Route Path | Component | Layout | Description
+─────────────────────────────┼───────────────────────┼──────────────┼─────────────────────────
+/ | LandingPage | BlankLayout | Public landing page /about | AboutPage |
+BlankLayout | About BankMate AI /products | PublicProductsPage |
+BlankLayout | Product catalog (public) /products/:productId |
+PublicProductDetails | BlankLayout | Product details (public) /contact |
+ContactPage | BlankLayout | Contact form /help | HelpCenterPage |
+BlankLayout | Help center /help/:articleId | HelpArticlePage |
+BlankLayout | Help article detail /terms | TermsPage | BlankLayout |
+Terms & conditions /privacy | PrivacyPage | BlankLayout | Privacy policy
+/sitemap | SitemapPage | BlankLayout | Site map Route Characteristics:
+
+✅ No authentication required ✅ SEO optimized ✅ Public access ✅ Can
+be crawled by search engines ❌ No session required ❌ No customer data
+access 2.1.2 AUTH ROUTES TypeScript
+
+AUTH ROUTES CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Route Path | Component | Layout | Guards | API Mapping
+─────────────────────────────┼───────────────────────┼──────────────┼─────────────────┼─────────────────────
+/auth/login | LoginPage | AuthLayout | GuestOnly | POST /auth/login
+/auth/register | RegisterPage | AuthLayout | GuestOnly | POST
+/customers/register /auth/otp-verify | OTPVerificationPage | AuthLayout
+| OTPRequired | POST /auth/verify-otp /auth/forgot-password |
+ForgotPasswordPage | AuthLayout | GuestOnly | POST /auth/forgot-password
+/auth/reset-password/:token | ResetPasswordPage | AuthLayout |
+TokenValid | POST /auth/reset-password /auth/logout | LogoutPage |
+BlankLayout | Authenticated | POST /auth/logout Route Characteristics:
+
+✅ Guest users only (except logout) ✅ Session management ✅ Token
+handling ✅ OTP validation ❌ Already logged-in users redirected to
+dashboard ❌ No persistent data without authentication State Management:
+
+text
+
+Login Flow States: ├─ IDLE → Initial state ├─ VALIDATING → Form
+validation in progress ├─ SUBMITTING → API call in progress ├─
+OTP_REQUIRED → OTP verification needed ├─ SUCCESS → Redirect to
+dashboard └─ ERROR → Show error message
+
+Registration Flow States: ├─ STEP_1_PERSONAL → Personal info collection
+├─ STEP_2_EMPLOYMENT → Employment details ├─ STEP_3_FINANCIAL →
+Financial information ├─ STEP_4_PREFERENCES → User preferences ├─
+SUBMITTING → Creating account ├─ OTP_VERIFICATION → Phone/Email OTP ├─
+SUCCESS → Account created, redirect └─ ERROR → Show error, allow retry
+2.1.3 CUSTOMER ROUTES TypeScript
+
+CUSTOMER ROUTES CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Route Path | Component | Layout | Guards | API Mapping
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/dashboard | CustomerDashboard | CustomerLayout | Auth,
+ProfileComplete | GET /customers/{id} | | | | GET /life-events/{id} | |
+| | GET /recommendations/{id}
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/onboarding | OnboardingFlow | OnboardingLayout | Auth,
+ProfileIncomplete | PUT /customers/{id} /customer/onboarding/:step |
+OnboardingStepPage | OnboardingLayout | Auth | POST
+/customers/{id}/detect-type
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/profile | ProfilePage | CustomerLayout | Auth | GET
+/customers/{id} /customer/profile/edit | ProfileEditPage |
+CustomerLayout | Auth | PUT /customers/{id} /customer/profile/financial
+| FinancialSnapshotPage | CustomerLayout | Auth, KYC | GET
+/customers/{id}/financial
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/life-events | LifeEventsPage | CustomerLayout | Auth | GET
+/life-events/{customerId} /customer/life-events/:eventId |
+LifeEventDetailsPage | CustomerLayout | Auth | GET
+/life-events/{eventId}
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/recommendations | RecommendationsPage | CustomerLayout | Auth
+| GET /recommendations/{customerId} /customer/recommendations/:recId |
+RecommendationDetailsPage | CustomerLayout | Auth | GET
+/recommendations/{recId} /customer/recommendations/compare |
+ProductComparisonPage | CustomerLayout | Auth | GET /products (multiple)
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/products | ProductsPage | CustomerLayout | Auth | GET
+/products /customer/products/:productId | ProductDetailsPage |
+CustomerLayout | Auth | GET /products/{productId}
+/customer/products/:productId/apply | ProductApplicationPage |
+CustomerLayout | Auth, KYC | POST /applications
+/customer/products/:productId/calculate | EMICalculatorPage |
+CustomerLayout | Auth | (Client-side calculation)
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/applications | ApplicationsPage | CustomerLayout | Auth | GET
+/applications/{customerId} /customer/applications/:appId |
+ApplicationDetailsPage | CustomerLayout | Auth | GET
+/applications/{appId} /customer/applications/:appId/status |
+ApplicationStatusPage | CustomerLayout | Auth | GET
+/applications/{appId}/status /customer/applications/:appId/accept |
+AcceptOfferPage | CustomerLayout | Auth | PUT
+/applications/{appId}/accept-offer
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/kyc | KYCPage | CustomerLayout | Auth | GET
+/kyc/{customerId}/status /customer/kyc/upload | DocumentUploadPage |
+CustomerLayout | Auth | POST /kyc/{customerId}/upload-document
+/customer/kyc/status | KYCStatusPage | CustomerLayout | Auth | GET
+/kyc/{customerId}/status
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/transactions | TransactionsPage | CustomerLayout | Auth | GET
+/transactions/{customerId} /customer/transactions/:txnId |
+TransactionDetailsPage | CustomerLayout | Auth | GET
+/transactions/{txnId}
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/chat | ChatPage | CustomerLayout | Auth | POST
+/chat/send-message | | | | GET /chat/history/{customerId}
+/customer/chat/:conversationId | ChatConversationPage | CustomerLayout |
+Auth | GET /chat/conversation/{id}
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/notifications | NotificationsPage | CustomerLayout | Auth |
+GET /notifications/{customerId} /customer/notifications/preferences |
+NotificationPreferencesPage | CustomerLayout | Auth | GET
+/notifications/preferences | | | | PUT /notifications/preferences
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/voice | VoiceCampaignsPage | CustomerLayout | Auth | GET
+/voice/campaigns /customer/voice/history | CallHistoryPage |
+CustomerLayout | Auth | GET /voice/history/{customerId}
+/customer/voice/preferences | VoicePreferencesPage | CustomerLayout |
+Auth | GET /voice/preferences | | | | PUT /voice/preferences
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/goals | GoalsPage | CustomerLayout | Auth | GET
+/goals/{customerId} /customer/goals/new | CreateGoalPage |
+CustomerLayout | Auth | POST /goals /customer/goals/:goalId |
+GoalDetailsPage | CustomerLayout | Auth | GET /goals/{goalId}
+/customer/goals/:goalId/edit | EditGoalPage | CustomerLayout | Auth |
+PUT /goals/{goalId}
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼────────────────────────────┼──────────────────────────
+/customer/settings | SettingsPage | CustomerLayout | Auth | GET
+/customers/{id}/settings /customer/settings/profile |
+ProfileSettingsPage | CustomerLayout | Auth | PUT /customers/{id}
+/customer/settings/security | SecuritySettingsPage | CustomerLayout |
+Auth | PUT /customers/{id}/security /customer/settings/notifications |
+NotificationSettingsPage | CustomerLayout | Auth | PUT
+/customers/{id}/notification-settings /customer/settings/language |
+LanguageSettingsPage | CustomerLayout | Auth | PUT
+/customers/{id}/preferences /customer/settings/theme | ThemeSettingsPage
+| CustomerLayout | Auth | PUT /customers/{id}/preferences Route
+Characteristics:
+
+✅ Authentication required (all routes) ✅ Customer role required ✅
+Session active validation ✅ Profile completion check (dashboard only)
+✅ KYC check (for sensitive operations) ❌ Admin access blocked ❌ Guest
+access blocked 2.1.4 ADMIN ROUTES TypeScript
+
+ADMIN ROUTES CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Route Path | Component | Layout | Guards | API Mapping
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/dashboard | AdminDashboard | AdminLayout | Auth, AdminRole | GET
+/admin/analytics | | | | GET /admin/metrics
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/customers | CustomerManagementPage | AdminLayout | Auth,
+AdminRole | GET /admin/customers /admin/customers/:customerId |
+CustomerDetailPage | AdminLayout | Auth, AdminRole | GET
+/admin/customers/{id} /admin/customers/:customerId/edit |
+EditCustomerPage | AdminLayout | Auth, AdminRole | PUT
+/admin/customers/{id}
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/products | ProductManagementPage | AdminLayout | Auth, AdminRole
+| GET /admin/products /admin/products/new | CreateProductPage |
+AdminLayout | Auth, AdminRole | POST /admin/products
+/admin/products/:productId | ProductDetailPage | AdminLayout | Auth,
+AdminRole | GET /admin/products/{id} /admin/products/:productId/edit |
+EditProductPage | AdminLayout | Auth, AdminRole | PUT
+/admin/products/{id}
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/config | ConfigManagementPage | AdminLayout | Auth, AdminRole |
+GET /admin/config /admin/config/customer-types | CustomerTypesConfigPage
+| AdminLayout | Auth, AdminRole | GET /admin/config/customer-types | | |
+| POST /admin/reload-config /admin/config/life-events |
+LifeEventsConfigPage | AdminLayout | Auth, AdminRole | GET
+/admin/config/life-events | | | | POST /admin/reload-config
+/admin/config/products | ProductsConfigPage | AdminLayout | Auth,
+AdminRole | GET /admin/config/products | | | | POST /admin/reload-config
+/admin/config/agents | AgentsConfigPage | AdminLayout | Auth, AdminRole
+| GET /admin/config/agents | | | | POST /admin/reload-config
+/admin/config/voice | VoiceConfigPage | AdminLayout | Auth, AdminRole |
+GET /admin/config/voice | | | | POST /admin/reload-config
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/campaigns | CampaignManagementPage | AdminLayout | Auth,
+AdminRole | GET /admin/campaigns /admin/campaigns/new |
+CreateCampaignPage | AdminLayout | Auth, AdminRole | POST
+/admin/campaigns /admin/campaigns/:campaignId | CampaignDetailPage |
+AdminLayout | Auth, AdminRole | GET /admin/campaigns/{id}
+/admin/campaigns/:campaignId/edit | EditCampaignPage | AdminLayout |
+Auth, AdminRole | PUT /admin/campaigns/{id}
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/analytics | AnalyticsDashboard | AdminLayout | Auth, AdminRole |
+GET /admin/analytics/dashboard /admin/analytics/customers |
+CustomerAnalyticsPage | AdminLayout | Auth, AdminRole | GET
+/admin/analytics/customers /admin/analytics/products |
+ProductAnalyticsPage | AdminLayout | Auth, AdminRole | GET
+/admin/analytics/products /admin/analytics/revenue |
+RevenueAnalyticsPage | AdminLayout | Auth, AdminRole | GET
+/admin/analytics/revenue /admin/analytics/conversions |
+ConversionAnalyticsPage | AdminLayout | Auth, AdminRole | GET
+/admin/analytics/conversions
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/monitoring | SystemMonitoringPage | AdminLayout | Auth, AdminRole
+| GET /admin/monitoring /admin/monitoring/logs | SystemLogsPage |
+AdminLayout | Auth, AdminRole | GET /admin/monitoring/logs
+/admin/monitoring/performance | PerformanceMonitorPage | AdminLayout |
+Auth, AdminRole | GET /admin/monitoring/performance
+/admin/monitoring/errors | ErrorTrackingPage | AdminLayout | Auth,
+AdminRole | GET /admin/monitoring/errors
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/reports | ReportsPage | AdminLayout | Auth, AdminRole | GET
+/admin/reports /admin/reports/generate | GenerateReportPage |
+AdminLayout | Auth, AdminRole | POST /admin/reports/generate
+/admin/reports/:reportId | ReportDetailPage | AdminLayout | Auth,
+AdminRole | GET /admin/reports/{id}
+───────────────────────────────────────┼─────────────────────────────┼────────────┼────────────────┼──────────────────────────
+/admin/settings | AdminSettingsPage | AdminLayout | Auth, AdminRole |
+GET /admin/settings Route Characteristics:
+
+✅ Authentication required ✅ Admin role required ✅ Audit logging
+enabled ✅ IP whitelist check (production) ❌ Customer role blocked ❌
+Public access blocked 2.1.5 RELATIONSHIP MANAGER ROUTES TypeScript
+
+RELATIONSHIP MANAGER ROUTES CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Route Path | Component | Layout | Guards | API Mapping
+───────────────────────────────────────┼─────────────────────────────┼──────────┼───────────────┼──────────────────────────
+/rm/dashboard | RMDashboard | RMLayout | Auth, RMRole | GET
+/rm/dashboard
+───────────────────────────────────────┼─────────────────────────────┼──────────┼───────────────┼──────────────────────────
+/rm/customers | RMCustomerListPage | RMLayout | Auth, RMRole | GET
+/rm/customers /rm/customers/:customerId | RMCustomerDetailPage |
+RMLayout | Auth, RMRole | GET /rm/customers/{id}
+/rm/customers/:customerId/engage | CustomerEngagementPage | RMLayout |
+Auth, RMRole | POST /rm/customers/{id}/engage
+───────────────────────────────────────┼─────────────────────────────┼──────────┼───────────────┼──────────────────────────
+/rm/leads | LeadsManagementPage | RMLayout | Auth, RMRole | GET
+/rm/leads /rm/leads/:leadId | LeadDetailPage | RMLayout | Auth, RMRole |
+GET /rm/leads/{id} /rm/leads/:leadId/convert | ConvertLeadPage |
+RMLayout | Auth, RMRole | POST /rm/leads/{id}/convert
+───────────────────────────────────────┼─────────────────────────────┼──────────┼───────────────┼──────────────────────────
+/rm/tasks | TaskManagementPage | RMLayout | Auth, RMRole | GET /rm/tasks
+/rm/tasks/:taskId | TaskDetailPage | RMLayout | Auth, RMRole | GET
+/rm/tasks/{id}
+───────────────────────────────────────┼─────────────────────────────┼──────────┼───────────────┼──────────────────────────
+/rm/calendar | CalendarPage | RMLayout | Auth, RMRole | GET /rm/calendar
+/rm/calendar/appointments | AppointmentsPage | RMLayout | Auth, RMRole |
+GET /rm/appointments
+───────────────────────────────────────┼─────────────────────────────┼──────────┼───────────────┼──────────────────────────
+/rm/performance | PerformanceDashboard | RMLayout | Auth, RMRole | GET
+/rm/performance /rm/performance/targets | TargetsPage | RMLayout | Auth,
+RMRole | GET /rm/targets Route Characteristics:
+
+✅ Authentication required ✅ Relationship Manager role required ✅
+Customer assignment validation ✅ Activity tracking ❌ Admin-only
+features blocked ❌ Customer role blocked 2.1.6 AI CHAT ROUTES
+TypeScript
+
+AI CHAT ROUTES CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Route Path | Component | Layout | Guards | API Mapping
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼──────────┼──────────────────────────
+/chat | ChatPage | CustomerLayout | Auth | GET
+/chat/history/{customerId} | | | | POST /chat/send-message
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼──────────┼──────────────────────────
+/chat/conversations/:conversationId | ChatConversationPage |
+CustomerLayout | Auth | GET /chat/conversation/{id} | | | | POST
+/chat/send-message
+───────────────────────────────────────┼─────────────────────────────┼─────────────────┼──────────┼──────────────────────────
+/chat/agent/:agentType | AgentSpecificChatPage | CustomerLayout | Auth |
+POST /chat/select-agent | | | | POST /chat/send-message Agent Types
+Supported:
+
+text
+
+AGENT_TYPE_ROUTING
+════════════════════════════════════════════════════════════════
+
+/chat/agent/welcome → Welcome Agent /chat/agent/profile → Profile Agent
+/chat/agent/recommendation → Recommendation Agent
+/chat/agent/qualification → Qualification Agent /chat/agent/kyc → KYC
+Agent /chat/agent/life-event → Life Event Agent /chat/agent/voice →
+Voice Engagement Agent 2.1.7 ERROR ROUTES TypeScript
+
+ERROR ROUTES CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Route Path | Component | Layout | Description
+─────────────────────────────┼───────────────────────┼──────────────┼─────────────────────────
+/404 | NotFoundPage | BlankLayout | Page not found /403 | ForbiddenPage
+| BlankLayout | Access denied /500 | ServerErrorPage | BlankLayout |
+Server error /503 | MaintenancePage | BlankLayout | Under maintenance
+/offline | OfflinePage | BlankLayout | No internet connection
+/session-expired | SessionExpiredPage | BlankLayout | Session timeout
+2.2 ROUTE GUARDS 2.2.1 AUTHENTICATION GUARD TypeScript
+
+AUTHENTICATION GUARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Protect routes that require user authentication
+
+Implementation Logic: ────────────────────
+
+IF (user is authenticated AND token is valid): ✅ Allow access to route
+ELSE IF (token exists BUT expired): ❌ Redirect to /auth/login with
+returnUrl 🔄 Trigger token refresh attempt ELSE IF (no token exists): ❌
+Redirect to /auth/login with returnUrl 💾 Save intended destination
+
+Validation Checks: ─────────────────
+
+1.  Check localStorage for authToken
+2.  Validate token expiry (JWT decode)
+3.  Verify token signature (if possible client-side)
+4.  Check session status with backend (optional)
+5.  Validate user role matches route requirement
+
+Protected Routes: ────────────────
+
+✅ All /customer/* routes ✅ All /admin/* routes ✅ All /rm/* routes ✅
+/chat/* routes ✅ /customer/profile/* routes ✅ /customer/applications/*
+routes
+
+Public Routes (No Guard): ────────────────────────
+
+✅ / ✅ /auth/* ✅ /about ✅ /products (public view) ✅ /help ✅ /terms
+✅ /privacy Guard Flow Diagram:
+
+text
+
+Route Request ↓ AuthGuard Activated ↓ Check authToken in localStorage ↓
+┌─────┴─────┐ │ │ Token No Token Exists Found │ │ ↓ ↓ Decode Redirect to
+Token /auth/login │ with returnUrl ↓ Check Expiry │ ┌─────┴─────┐ │ │
+Valid Expired Token Token │ │ ↓ ↓ Verify Attempt Role Token │ Refresh ↓
+│ Role ├─ Success → Continue Matches? └─ Fail → Redirect to Login │
+┌─────┴─────┐ │ │ Yes No │ │ ↓ ↓ Allow Redirect to Access /403 2.2.2
+AUTHORIZATION GUARD (ROLE GUARD) TypeScript
+
+AUTHORIZATION GUARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Verify user has required role for route access
+
+Role Hierarchy: ──────────────
+
+ADMIN > RELATIONSHIP_MANAGER > CUSTOMER
+
+Role-Based Access: ─────────────────
+
+Role: CUSTOMER ├─ Access: /customer/ ├─ Access: /chat/ └─ Blocked:
+/admin/, /rm/
+
+Role: RELATIONSHIP_MANAGER ├─ Access: /rm/ ├─ Access: /customer/
+(assigned customers only) └─ Blocked: /admin/*
+
+Role: ADMIN ├─ Access: /admin/ ├─ Access: /rm/ (view only) ├─ Access:
+/customer/* (all customers) └─ Full system access
+
+Implementation Logic: ────────────────────
+
+IF (route requires ADMIN role): IF (user.role === ‘ADMIN’): ✅ Allow
+access ELSE: ❌ Redirect to /403
+
+IF (route requires RM role): IF (user.role === ‘ADMIN’ OR user.role ===
+‘RELATIONSHIP_MANAGER’): ✅ Allow access ELSE: ❌ Redirect to /403
+
+IF (route requires CUSTOMER role): IF (user.role === ‘CUSTOMER’): ✅
+Allow access ELSE IF (user.role === ‘ADMIN’): ✅ Allow access (admin can
+view customer routes) ELSE: ❌ Redirect to /403 Role Check Flow:
+
+text
+
+AuthGuard Passed ↓ RoleGuard Activated ↓ Extract user.role from token ↓
+Check route.requiredRole ↓ ┌─────────┴─────────┐ │ │ Role Role Matches
+Doesn’t Match │ │ ↓ ↓ Allow Check if Admin Access (Admin override) │
+┌───┴───┐ │ │ Admin Not Admin │ │ ↓ ↓ Allow Deny Access Access │ ↓
+Redirect to /403 2.2.3 KYC GUARD TypeScript
+
+KYC GUARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Ensure KYC completion for sensitive operations
+
+KYC Status Values: ─────────────────
+
+PENDING → KYC not started IN_PROGRESS → Documents uploaded, verification
+pending VERIFIED → KYC approved REJECTED → KYC failed EXPIRED → KYC
+needs renewal
+
+Routes Requiring KYC: ────────────────────
+
+✅ /customer/products/:productId/apply ✅ /customer/applications/new ✅
+/customer/profile/financial ✅ /customer/transactions (full access) ✅
+High-value product applications
+
+Routes Not Requiring KYC: ─────────────────────────
+
+✅ /customer/dashboard (limited view) ✅ /customer/profile/edit ✅
+/customer/recommendations (view only) ✅ /customer/kyc/upload (to
+complete KYC) ✅ /chat
+
+Implementation Logic: ────────────────────
+
+IF (route requires KYC): Fetch customer.kycStatus from API/Store
+
+IF (kycStatus === ‘VERIFIED’): ✅ Allow access ELSE IF (kycStatus ===
+‘PENDING’ OR ‘IN_PROGRESS’): ❌ Block access 💬 Show modal: “Complete
+KYC to continue” 🔗 Provide link to /customer/kyc ELSE IF (kycStatus ===
+‘REJECTED’): ❌ Block access 💬 Show modal: “KYC rejected. Contact
+support” ELSE IF (kycStatus === ‘EXPIRED’): ❌ Block access 💬 Show
+modal: “KYC expired. Please renew” 🔗 Provide link to /customer/kyc KYC
+Guard Flow:
+
+text
+
+Route with KYC Requirement ↓ KYCGuard Activated ↓ Fetch
+customer.kycStatus ↓ ┌─────────┴─────────┐ │ │ KYC KYC VERIFIED Not
+Verified │ │ ↓ ↓ Allow Check Status Access │ ┌───┴───────────┐ │ │
+PENDING/ REJECTED/ IN_PROGRESS EXPIRED │ │ ↓ ↓ Show Modal Show Error
+“Complete KYC” “KYC Issue” │ │ Redirect to Contact /customer/kyc Support
+2.2.4 PROFILE COMPLETION GUARD TypeScript
+
+PROFILE COMPLETION GUARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Ensure customer completes profile before accessing dashboard
+
+Profile Completion Stages: ─────────────────────────
+
+Stage 1: Basic Info (20%) ├─ Name, Email, Phone └─ Date of Birth
+
+Stage 2: Employment (40%) ├─ Employment Type ├─ Company Name └─ Monthly
+Income
+
+Stage 3: Financial (60%) ├─ Bank Details └─ Financial Goals
+
+Stage 4: Preferences (80%) ├─ Communication Preferences └─ Language
+Selection
+
+Stage 5: Complete (100%) └─ All information provided
+
+Routes Requiring Profile Completion: ───────────────────────────────────
+
+✅ /customer/dashboard → Requires 100% ✅ /customer/recommendations →
+Requires 80% ✅ /customer/products → Requires 60%
+
+Routes Not Requiring Completion: ───────────────────────────────
+
+✅ /customer/onboarding (to complete profile) ✅ /customer/profile/edit
+✅ /chat (basic access)
+
+Implementation Logic: ────────────────────
+
+IF (route requires profile completion): Fetch
+customer.profileCompletionPercentage
+
+IF (completionPercentage >= route.requiredCompletion): ✅ Allow access
+ELSE: ❌ Block access 💬 Show modal: “Complete your profile” 🔗 Redirect
+to /customer/onboarding
+
+Minimum Completion Requirements: ───────────────────────────────
+
+/customer/dashboard → 100% /customer/recommendations → 80%
+/customer/products → 60% /customer/chat → 40% /customer/profile → 0%
+(allow always) 2.2.5 FEATURE FLAG GUARD TypeScript
+
+FEATURE FLAG GUARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Control access to features based on flags (A/B testing,
+rollout)
+
+Feature Flags Configuration: ───────────────────────────
+
+Feature flags loaded from: ├─ Backend API: GET /config/feature-flags ├─
+Local Config: public/config/feature-flags.json └─ Environment Variables:
+process.env.REACT_APP_FEATURE_*
+
+Flag Structure: ──────────────
+
+{ “featureId”: “voice_campaigns”, “enabled”: true, “rolloutPercentage”:
+50, “allowedRoles”: [“ADMIN”, “CUSTOMER”], “allowedCustomerTypes”:
+[“salaried”, “business”], “startDate”: “2024-01-20T00:00:00Z”,
+“endDate”: “2024-12-31T23:59:59Z” }
+
+Routes with Feature Flags: ─────────────────────────
+
+/customer/voice/* → voice_campaigns flag /customer/goals/* →
+financial_goals flag /admin/config/voice → voice_config_access flag
+/chat/agent/voice → voice_agent flag
+
+Implementation Logic: ────────────────────
+
+IF (route has featureFlag): Load flag from config/store
+
+IF (flag.enabled === false): ❌ Block access 💬 Show: “Feature not
+available” 🔙 Redirect to previous page
+
+ELSE IF (flag.rolloutPercentage < 100): Calculate user eligibility
+(hash-based) IF (user is in rollout percentage): ✅ Allow access ELSE:
+❌ Block access 💬 Show: “Feature coming soon”
+
+ELSE IF (flag has role restrictions): IF (user.role in
+flag.allowedRoles): ✅ Allow access ELSE: ❌ Block access
+
+ELSE IF (flag has customerType restrictions): IF (user.customerType in
+flag.allowedCustomerTypes): ✅ Allow access ELSE: ❌ Block access 💬
+Show: “Feature not available for your profile” 2.3 NAVIGATION HIERARCHY
+2.3.1 CUSTOMER NAVIGATION TREE text
+
+CUSTOMER NAVIGATION HIERARCHY
+════════════════════════════════════════════════════════════════
+
+🏠 Dashboard (/customer/dashboard) └─ Overview, Stats, Recent Activity
+
+👤 Profile ├─ View Profile (/customer/profile) ├─ Edit Profile
+(/customer/profile/edit) └─ Financial Snapshot
+(/customer/profile/financial) [KYC Required]
+
+🎉 Life Events (/customer/life-events) ├─ All Events └─ Event Details
+(/customer/life-events/:eventId) ├─ Detection Info ├─ Confidence Score
+├─ Stage Timeline └─ Related Recommendations
+
+✨ Recommendations (/customer/recommendations) ├─ All Recommendations ├─
+Recommendation Details (/customer/recommendations/:recId) ├─ Product
+Comparison (/customer/recommendations/compare) └─ Filter by Stage ├─
+Decision Stage ├─ Execution Stage └─ Post-Completion Stage
+
+🛍️ Products (/customer/products) ├─ Product Catalog │ ├─ Deposits │ ├─
+Loans │ ├─ Insurance │ ├─ Investment │ └─ Credit Cards ├─ Product
+Details (/customer/products/:productId) │ ├─ Overview │ ├─ Features │ ├─
+Eligibility │ ├─ EMI Calculator
+(/customer/products/:productId/calculate) │ └─ Apply
+(/customer/products/:productId/apply) [KYC Required] └─ Compare Products
+
+📝 Applications (/customer/applications) ├─ All Applications ├─
+Application Details (/customer/applications/:appId) │ ├─ Status Timeline
+│ ├─ Documents │ └─ Next Steps ├─ Application Status
+(/customer/applications/:appId/status) └─ Accept Offer
+(/customer/applications/:appId/accept)
+
+🔐 KYC (/customer/kyc) ├─ KYC Status (/customer/kyc/status) └─ Upload
+Documents (/customer/kyc/upload) ├─ Aadhar ├─ PAN ├─ Address Proof ├─
+Income Proof └─ Other Documents
+
+💳 Transactions (/customer/transactions) ├─ All Transactions ├─
+Transaction Details (/customer/transactions/:txnId) └─ Filters ├─ By
+Date Range ├─ By Category ├─ By Amount └─ By Status
+
+💬 AI Chat (/customer/chat) ├─ All Conversations ├─ Conversation Details
+(/customer/chat/:conversationId) └─ Select Agent
+(/chat/agent/:agentType) ├─ Welcome Agent ├─ Profile Agent ├─
+Recommendation Agent ├─ Qualification Agent ├─ KYC Agent └─ Life Event
+Agent
+
+🔔 Notifications (/customer/notifications) ├─ All Notifications └─
+Preferences (/customer/notifications/preferences)
+
+📞 Voice (/customer/voice) ├─ Campaigns (/customer/voice) ├─ Call
+History (/customer/voice/history) └─ Preferences
+(/customer/voice/preferences)
+
+🎯 Goals (/customer/goals) ├─ All Goals ├─ Create Goal
+(/customer/goals/new) ├─ Goal Details (/customer/goals/:goalId) └─ Edit
+Goal (/customer/goals/:goalId/edit)
+
+⚙️ Settings (/customer/settings) ├─ Profile Settings
+(/customer/settings/profile) ├─ Security Settings
+(/customer/settings/security) ├─ Notification Settings
+(/customer/settings/notifications) ├─ Language Settings
+(/customer/settings/language) └─ Theme Settings
+(/customer/settings/theme) 2.3.2 ADMIN NAVIGATION TREE text
+
+ADMIN NAVIGATION HIERARCHY
+════════════════════════════════════════════════════════════════
+
+🏠 Dashboard (/admin/dashboard) └─ System Overview, Metrics
+
+👥 Customer Management (/admin/customers) ├─ Customer List ├─ Customer
+Details (/admin/customers/:customerId) └─ Edit Customer
+(/admin/customers/:customerId/edit)
+
+🛍️ Product Management (/admin/products) ├─ Product List ├─ Create
+Product (/admin/products/new) ├─ Product Details
+(/admin/products/:productId) └─ Edit Product
+(/admin/products/:productId/edit)
+
+⚙️ Configuration (/admin/config) ├─ Customer Types
+(/admin/config/customer-types) ├─ Life Events
+(/admin/config/life-events) ├─ Products (/admin/config/products) ├─ AI
+Agents (/admin/config/agents) └─ Voice Campaigns (/admin/config/voice)
+
+📢 Campaign Management (/admin/campaigns) ├─ All Campaigns ├─ Create
+Campaign (/admin/campaigns/new) ├─ Campaign Details
+(/admin/campaigns/:campaignId) └─ Edit Campaign
+(/admin/campaigns/:campaignId/edit)
+
+📊 Analytics (/admin/analytics) ├─ Dashboard (/admin/analytics) ├─
+Customer Analytics (/admin/analytics/customers) ├─ Product Analytics
+(/admin/analytics/products) ├─ Revenue Analytics
+(/admin/analytics/revenue) └─ Conversion Analytics
+(/admin/analytics/conversions)
+
+🔍 Monitoring (/admin/monitoring) ├─ System Status (/admin/monitoring)
+├─ System Logs (/admin/monitoring/logs) ├─ Performance
+(/admin/monitoring/performance) └─ Error Tracking
+(/admin/monitoring/errors)
+
+📄 Reports (/admin/reports) ├─ All Reports ├─ Generate Report
+(/admin/reports/generate) └─ Report Details (/admin/reports/:reportId)
+
+⚙️ Settings (/admin/settings) └─ System Configuration 2.3.3 RELATIONSHIP
+MANAGER NAVIGATION TREE text
+
+RELATIONSHIP MANAGER NAVIGATION HIERARCHY
+════════════════════════════════════════════════════════════════
+
+🏠 Dashboard (/rm/dashboard) └─ Performance, Targets, Tasks
+
+👥 Customers (/rm/customers) ├─ Customer List ├─ Customer Details
+(/rm/customers/:customerId) └─ Engage Customer
+(/rm/customers/:customerId/engage)
+
+📈 Leads (/rm/leads) ├─ All Leads ├─ Lead Details (/rm/leads/:leadId) └─
+Convert Lead (/rm/leads/:leadId/convert)
+
+✅ Tasks (/rm/tasks) ├─ All Tasks └─ Task Details (/rm/tasks/:taskId)
+
+📅 Calendar (/rm/calendar) ├─ Calendar View └─ Appointments
+(/rm/calendar/appointments)
+
+📊 Performance (/rm/performance) ├─ Dashboard └─ Targets
+(/rm/performance/targets) 2.4 SIDEBAR NAVIGATION 2.4.1 CUSTOMER SIDEBAR
+TypeScript
+
+CUSTOMER SIDEBAR CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Top Section: User Profile ───────────────────────── ├─ Avatar ├─ Name ├─
+Customer Type Badge └─ Quick Stats (KYC Status, Credit Score)
+
+Main Navigation: ───────────────
+
+Icon | Label | Route | Badge
+─────┼───────────────────┼───────────────────────────┼─────────────────
+🏠 | Dashboard | /customer/dashboard | - 👤 | Profile |
+/customer/profile | Completion % 🎉 | Life Events |
+/customer/life-events | New Count ✨ | Recommendations |
+/customer/recommendations | Count 🛍️ | Products | /customer/products | -
+📝 | Applications | /customer/applications | Pending Count 🔐 | KYC |
+/customer/kyc | Status Badge 💳 | Transactions | /customer/transactions
+| - 💬 | AI Chat | /customer/chat | Unread Count 🎯 | Goals |
+/customer/goals | Active Count
+
+Bottom Section: ────────────── ├─ 🔔 Notifications ├─ ⚙️ Settings └─ 🚪
+Logout
+
+Collapsed State: ─────────────── Shows only icons, tooltips on hover
+
+Mobile State: ──────────── Drawer that slides from left Overlay when
+open Swipe to close Sidebar State Management:
+
+text
+
+Sidebar States: ├─ EXPANDED (default on desktop) ├─ COLLAPSED
+(icon-only) └─ HIDDEN (mobile default)
+
+Toggle Behavior: ├─ Desktop: Toggle between EXPANDED ↔ COLLAPSED ├─
+Mobile: Toggle between HIDDEN ↔ EXPANDED └─ State persisted in
+localStorage
+
+Active Route Highlighting: ├─ Current route gets primary color
+background ├─ Parent route highlighted if child is active └─ Smooth
+transition animation 2.4.2 ADMIN SIDEBAR TypeScript
+
+ADMIN SIDEBAR CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Icon | Label | Route | Badge
+─────┼───────────────────┼───────────────────────────┼─────────────────
+🏠 | Dashboard | /admin/dashboard | - 👥 | Customers | /admin/customers
+| Total Count 🛍️ | Products | /admin/products | Active Count ⚙️ |
+Configuration | /admin/config | - | ├─ Customer Types |
+/admin/config/customer-types | - | ├─ Life Events |
+/admin/config/life-events | - | ├─ Products | /admin/config/products | -
+| ├─ AI Agents | /admin/config/agents | - | └─ Voice |
+/admin/config/voice | - 📢 | Campaigns | /admin/campaigns | Active Count
+📊 | Analytics | /admin/analytics | - | ├─ Customers |
+/admin/analytics/customers | - | ├─ Products | /admin/analytics/products
+| - | ├─ Revenue | /admin/analytics/revenue | - | └─ Conversions |
+/admin/analytics/conversions | - 🔍 | Monitoring | /admin/monitoring |
+Alert Count | ├─ System Status | /admin/monitoring | - | ├─ Logs |
+/admin/monitoring/logs | Error Count | ├─ Performance |
+/admin/monitoring/performance | - | └─ Errors | /admin/monitoring/errors
+| Count 📄 | Reports | /admin/reports | - ⚙️ | Settings |
+/admin/settings | - 2.4.3 RELATIONSHIP MANAGER SIDEBAR TypeScript
+
+RM SIDEBAR CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Icon | Label | Route | Badge
+─────┼───────────────────┼───────────────────────────┼─────────────────
+🏠 | Dashboard | /rm/dashboard | - 👥 | My Customers | /rm/customers |
+Assigned Count 📈 | Leads | /rm/leads | New Count ✅ | Tasks | /rm/tasks
+| Pending Count 📅 | Calendar | /rm/calendar | Today Count 📊 |
+Performance | /rm/performance | Target % 2.5 BREADCRUMB STRATEGY
+TypeScript
+
+BREADCRUMB CONFIGURATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Show navigation path, allow quick navigation to parent routes
+
+Structure: ─────────
+
+Home > Category > Subcategory > Current Page
+
+Examples: ────────
+
+Route: /customer/products/PROD001 Breadcrumb: Dashboard > Products >
+Product Details
+
+Route: /customer/applications/APP001/status Breadcrumb: Dashboard >
+Applications > Application Details > Status
+
+Route: /admin/config/life-events Breadcrumb: Dashboard > Configuration >
+Life Events
+
+Implementation Rules: ────────────────────
+
+1.  First item always links to respective dashboard
+
+    -   Customer routes: Dashboard > …
+    -   Admin routes: Admin Dashboard > …
+    -   RM routes: RM Dashboard > …
+
+2.  Middle items are clickable (navigate to parent)
+
+3.  Last item is current page (not clickable)
+
+4.  Dynamic segments (IDs) show readable names
+
+    -   /customer/products/PROD001 → “Wedding Loan”
+    -   /customer/applications/APP001 → “Application #APP001”
+
+5.  Max 5 levels deep
+
+    -   If deeper, show: Home > … > Parent > Current
+
+6.  Mobile: Show only current page + back button
+
+Breadcrumb Configuration Map: ────────────────────────────
+
+/customer/dashboard ├─ Dashboard
+
+/customer/profile ├─ Dashboard > Profile
+
+/customer/products ├─ Dashboard > Products
+
+/customer/products/:productId ├─ Dashboard > Products > {Product Name}
+
+/customer/products/:productId/apply ├─ Dashboard > Products > {Product
+Name} > Apply
+
+/customer/applications ├─ Dashboard > Applications
+
+/customer/applications/:appId ├─ Dashboard > Applications > Application
+#{ID}
+
+/customer/applications/:appId/status ├─ Dashboard > Applications >
+Application #{ID} > Status
+
+/admin/config/life-events ├─ Admin > Configuration > Life Events
+
+/admin/customers/:customerId ├─ Admin > Customers > {Customer Name} 2.6
+DEEP LINKING STRATEGY TypeScript
+
+DEEP LINKING SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Allow direct navigation to specific app states via URL
+
+Use Cases: ─────────
+
+1.  Email Links
+    -   Recommendation email → /customer/recommendations/REC123
+    -   Application status → /customer/applications/APP456/status
+    -   Voice campaign → /customer/voice?campaign=VOICE789
+2.  Push Notifications
+    -   Life event detected → /customer/life-events/LE001
+    -   KYC approved → /customer/kyc/status
+    -   Application approved → /customer/applications/APP001
+3.  SMS Links
+    -   Apply for product → /customer/products/PROD001/apply
+    -   Complete profile → /customer/onboarding?step=2
+4.  Share Links
+    -   Product comparison →
+        /customer/recommendations/compare?ids=P1,P2,P3
+
+Deep Link Format: ────────────────
+
+https://app.bankmate.com/{route}?{params}&utm_source={source}
+
+Examples: ────────
+
+Email Notification:
+https://app.bankmate.com/customer/recommendations/REC123
+?utm_source=email&utm_campaign=marriage_offer
+
+SMS Link: https://app.bankmate.com/customer/products/PROD001/apply
+?utm_source=sms&ref=voice_campaign
+
+Push Notification:
+https://app.bankmate.com/customer/applications/APP001/status
+?utm_source=push&notification_id=NOTIF456
+
+Handling Flow: ─────────────
+
+1.  User clicks deep link ↓
+2.  App opens at specified route ↓
+3.  IF user not logged in:
+    -   Redirect to /auth/login
+    -   Save intended destination (returnUrl)
+    -   After login, redirect to original deep link ↓
+4.  IF user logged in:
+    -   Navigate to specified route
+    -   Apply guards (Auth, KYC, etc.)
+    -   IF guard fails, show appropriate message ↓
+5.  Track analytics:
+    -   utm_source, utm_campaign
+    -   Conversion tracking
+    -   User engagement
+
+Deep Link Parameters: ────────────────────
+
+?returnUrl={url} → Redirect after login ?utm_source={source} → Analytics
+tracking ?utm_campaign={campaign} → Campaign tracking ?ref={reference} →
+Referral tracking ?action={action} → Auto-trigger action
+?highlight={elementId} → Highlight specific element ?tab={tabName} →
+Open specific tab 2.7 ROUTE PARAMETERS TypeScript
+
+ROUTE PARAMETERS SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Path Parameters (Dynamic Segments): ──────────────────────────────────
+
+:customerId → Customer ID (UUID) :productId → Product ID
+:recommendationId → Recommendation ID
+:applicationId → Application ID :eventId → Life Event ID :transactionId
+→ Transaction ID :conversationId → Chat Conversation ID :campaignId →
+Campaign ID :goalId → Goal ID :documentId → Document ID :reportId →
+Report ID
+
+Query Parameters: ────────────────
+
+?page={number} → Pagination ?limit={number} → Items per page
+?sort={field} → Sort field ?order={asc|desc} → Sort order
+?filter={criteria} → Filter criteria ?search={query} → Search query
+?category={category} → Category filter ?status={status} → Status filter
+?from={date} → Date range start ?to={date} → Date range end
+?tab={tabName} → Active tab ?modal={modalId} → Open modal
+?action={actionName} → Trigger action ?returnUrl={url} → Return
+destination ?utm_source={source} → Analytics source
+?utm_campaign={campaign} → Analytics campaign
+
+Parameter Validation: ────────────────────
+
+customerId: ├─ Format: UUID v4 ├─ Regex:
+/[1]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i └─
+Example: “550e8400-e29b-41d4-a716-446655440000”
+
+productId: ├─ Format: PROD + 3 digits ├─ Regex: /^PROD$/ └─ Example:
+“PROD001”
+
+page: ├─ Type: Integer ├─ Min: 1 ├─ Default: 1 └─ Example: ?page=2
+
+limit: ├─ Type: Integer ├─ Min: 10 ├─ Max: 100 ├─ Default: 20 └─
+Example: ?limit=50
+
+date: ├─ Format: ISO 8601 ├─ Pattern: YYYY-MM-DD └─ Example:
+?from=2024-01-01&to=2024-01-31 2.8 NAVIGATION STATE TypeScript
+
+NAVIGATION STATE MANAGEMENT
+════════════════════════════════════════════════════════════════
+
+State Persistence Strategy: ──────────────────────────
+
+Level 1: URL State (React Router) ├─ Current route ├─ Path parameters ├─
+Query parameters └─ Hash fragments
+
+Level 2: Session State (sessionStorage) ├─ Navigation history (last 10
+routes) ├─ Scroll positions per route ├─ Active tabs per route ├─ Filter
+states per route └─ Pagination states per route
+
+Level 3: Persistent State (localStorage) ├─ Sidebar collapsed/expanded
+├─ User preferences ├─ Recent routes (last 5) └─ Favorite routes
+
+State Structure: ───────────────
+
+navigationState = { currentRoute: ‘/customer/products’, previousRoute:
+‘/customer/dashboard’, history: [ ‘/customer/dashboard’,
+‘/customer/life-events’, ‘/customer/recommendations’,
+‘/customer/products’ ], scrollPositions: { ‘/customer/products’: 450,
+‘/customer/dashboard’: 0 }, activeTab: { ‘/customer/settings’:
+‘security’, ‘/customer/profile’: ‘edit’ }, filters: {
+‘/customer/transactions’: { category: ‘JEWELRY’, from: ‘2024-01-01’, to:
+‘2024-01-31’ } }, sidebarState: ‘expanded’, recentRoutes: [
+‘/customer/products’, ‘/customer/life-events’, ‘/customer/dashboard’ ] }
+
+State Restoration: ─────────────────
+
+On Route Change: 1. Save current scroll position 2. Save active tab (if
+applicable) 3. Save filter state (if applicable) 4. Update navigation
+history 5. Restore previous scroll position (if returning) 6. Restore
+active tab (if returning) 7. Restore filter state (if returning)
+
+On App Reload: 1. Restore sidebar state from localStorage 2. Check for
+returnUrl in query params 3. Redirect to returnUrl if present 4.
+Otherwise, show last visited route 5. Restore scroll position
+
+On Browser Back/Forward: 1. Detect navigation direction 2. Restore
+scroll position 3. Restore tab state 4. Restore filter state 5. Trigger
+API refetch if data might be stale 2.9 LAZY LOADING STRATEGY TypeScript
+
+LAZY LOADING SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Load route components only when needed (Code Splitting)
+
+Lazy Loading Strategy: ─────────────────────
+
+Route Level: ├─ Public routes → Eager load (small bundle) ├─ Auth routes
+→ Lazy load ├─ Customer routes → Lazy load (feature-based chunks) ├─
+Admin routes → Lazy load (separate chunk) └─ RM routes → Lazy load
+(separate chunk)
+
+Feature-Based Chunks: ────────────────────
+
+Chunk: auth.chunk.js ├─ LoginPage ├─ RegisterPage └─ OTPVerificationPage
+
+Chunk: customer-core.chunk.js ├─ CustomerDashboard ├─ ProfilePage └─
+SettingsPage
+
+Chunk: customer-products.chunk.js ├─ ProductsPage ├─ ProductDetailsPage
+└─ ProductApplicationPage
+
+Chunk: customer-applications.chunk.js ├─ ApplicationsPage ├─
+ApplicationDetailsPage └─ ApplicationStatusPage
+
+Chunk: customer-kyc.chunk.js ├─ KYCPage ├─ DocumentUploadPage └─
+KYCStatusPage
+
+Chunk: customer-chat.chunk.js ├─ ChatPage └─ ChatConversationPage
+
+Chunk: admin.chunk.js ├─ AdminDashboard ├─ ConfigManagementPage └─
+AnalyticsPage
+
+Chunk: rm.chunk.js ├─ RMDashboard └─ CustomerManagementPage
+
+Loading Strategy: ────────────────
+
+Preload Priority: 1. IMMEDIATE → Currently visible route 2. HIGH →
+Likely next route (based on user journey) 3. MEDIUM → Related routes 4.
+LOW → Other routes
+
+Example: If user is on /customer/recommendations: ├─ IMMEDIATE:
+RecommendationsPage (already loaded) ├─ HIGH: ProductDetailsPage (likely
+to view product) ├─ MEDIUM: ProductApplicationPage (might apply) └─ LOW:
+Other routes
+
+Prefetch Strategy: ─────────────────
+
+On Idle Time: ├─ Prefetch HIGH priority chunks └─ Prefetch MEDIUM
+priority chunks (if bandwidth available)
+
+On Link Hover: ├─ Prefetch target route chunk └─ Prefetch related data
+
+On Route Change: ├─ Prefetch likely next routes └─ Cancel pending
+prefetches for unrelated routes
+
+Loading UI: ──────────
+
+While Loading Route: ├─ Show route-level skeleton ├─ Display loading bar
+at top └─ Maintain layout (prevent layout shift)
+
+Fallback Component: ├─ Minimal spinner ├─ Route breadcrumb (if
+available) └─ Back button
+
+Error Handling: ──────────────
+
+Chunk Load Failure: ├─ Retry 3 times with exponential backoff ├─ If all
+retries fail, show error page ├─ Provide manual retry button └─ Log
+error to monitoring service 2.10 ROUTE-LEVEL ERROR HANDLING TypeScript
+
+ROUTE ERROR HANDLING SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Error Types: ───────────
+
+1.  Route Not Found (404)
+2.  Access Denied (403)
+3.  Authentication Required (401)
+4.  Server Error (500)
+5.  Network Error (Offline)
+6.  Chunk Load Error
+7.  Data Load Error
+8.  Guard Rejection
+
+Error Handling Flow: ───────────────────
+
+404 - Route Not Found: ├─ Show NotFoundPage ├─ Display suggested routes
+├─ Provide search functionality └─ Track in analytics
+
+403 - Access Denied: ├─ Show ForbiddenPage ├─ Explain why access was
+denied ├─ Show required permissions └─ Provide link to appropriate
+dashboard
+
+401 - Authentication Required: ├─ Redirect to /auth/login ├─ Save
+returnUrl in state ├─ After login, redirect to returnUrl └─ Show
+“Session expired” message if token expired
+
+500 - Server Error: ├─ Show ServerErrorPage ├─ Retry button ├─ Contact
+support link └─ Log error details
+
+Network Error: ├─ Show OfflinePage ├─ Monitor connection ├─ Auto-retry
+when online └─ Show cached data if available
+
+Chunk Load Error: ├─ Auto-retry with exponential backoff ├─ If failed
+after 3 retries: │ ├─ Show error message │ ├─ Reload page button │ └─
+Clear cache button └─ Log to error tracking
+
+Data Load Error: ├─ Show error within route (not full page) ├─ Retry
+button ├─ Show cached data if available └─ Maintain route navigation
+
+Guard Rejection: ├─ KYC Guard: Redirect to /customer/kyc ├─ Profile
+Guard: Redirect to /customer/onboarding ├─ Role Guard: Redirect to /403
+└─ Feature Flag Guard: Show “Coming soon” message
+
+Error Recovery: ──────────────
+
+Auto-Recovery: ├─ Network errors → Retry when online ├─ Chunk errors →
+Retry with backoff └─ Auth errors → Redirect to login
+
+Manual Recovery: ├─ Retry button ├─ Reload page button ├─ Go back button
+└─ Contact support link
+
+Error Logging: ─────────────
+
+Log to Backend: POST /api/errors/log { errorType: ‘404’ | ‘403’ | ‘500’
+| ‘network’ | ‘chunk’, route: string, message: string, stack: string,
+userAgent: string, timestamp: string }
+
+Track in Analytics: ├─ Error type ├─ Error route ├─ User ID ├─ Session
+ID └─ Recovery action taken 2.11 LOADING STRATEGY TypeScript
+
+LOADING STRATEGY SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Loading States: ──────────────
+
+1.  Route Loading (Lazy Load)
+2.  Data Loading (API Call)
+3.  Action Loading (Submit/Update)
+4.  Background Loading (Prefetch)
+
+Route Loading: ─────────────
+
+Show: ├─ Top loading bar (2px height) ├─ Route skeleton (full page) └─
+Breadcrumb (if known)
+
+Duration: ├─ Expected: < 500ms ├─ Timeout: 5000ms └─ If timeout: Show
+error
+
+Data Loading: ────────────
+
+Initial Load (First Render): ├─ Show skeleton components ├─ Maintain
+layout └─ Preserve static UI (header, sidebar)
+
+Refetch (User Action): ├─ Show spinner in content area ├─ Dim content
+slightly └─ Disable interactions
+
+Pagination: ├─ Show loading only in data section ├─ Keep pagination
+controls visible └─ Indicate which page is loading
+
+Action Loading: ──────────────
+
+Form Submission: ├─ Disable submit button ├─ Show spinner in button ├─
+Change button text: “Submitting…” └─ Disable all form fields
+
+API Update: ├─ Show inline spinner ├─ Disable affected controls └─ Show
+success/error feedback
+
+Delete Action: ├─ Show confirmation modal ├─ Show spinner in delete
+button └─ Optimistic update (fade out item)
+
+Background Loading: ──────────────────
+
+Prefetch: ├─ No UI indication ├─ Low priority (idle time) └─ Cache in
+store
+
+Refresh: ├─ Pull-to-refresh (mobile) ├─ Auto-refresh (configurable) └─
+Show subtle indicator
+
+Skeleton Screens: ────────────────
+
+Dashboard Skeleton: ├─ Header block ├─ 3 stat card blocks ├─ List of 5
+item blocks └─ Gray animated shimmer
+
+Product List Skeleton: ├─ Grid of 6 product card blocks ├─ Each with
+image, title, description blocks └─ Shimmer animation
+
+Product Details Skeleton: ├─ Large image block ├─ Title and description
+blocks ├─ Feature list blocks └─ Button blocks
+
+Loading Timeouts: ────────────────
+
+Route Load: 5 seconds Data Load: 10 seconds Action: 30 seconds
+Background: No timeout
+
+If timeout exceeded: ├─ Show error message ├─ Provide retry option └─
+Log to monitoring 2.12 NAVIGATION ANIMATION RULES TypeScript
+
+NAVIGATION ANIMATION SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Purpose: Smooth transitions between routes, visual feedback
+
+Animation Types: ───────────────
+
+1.  Page Transitions
+2.  Sidebar Animations
+3.  Modal Animations
+4.  Tab Animations
+5.  Loading Animations
+
+Page Transitions: ────────────────
+
+Forward Navigation (deeper): ├─ Slide from right to left ├─ Duration:
+300ms ├─ Easing: ease-out └─ Example: Dashboard → Products → Product
+Details
+
+Backward Navigation (shallower): ├─ Slide from left to right ├─
+Duration: 300ms ├─ Easing: ease-in └─ Example: Product Details →
+Products → Dashboard
+
+Same-Level Navigation: ├─ Fade transition ├─ Duration: 200ms ├─ Easing:
+ease-in-out └─ Example: Products Tab → Transactions Tab
+
+Modal Navigation: ├─ Fade in overlay ├─ Scale up content (0.9 → 1.0) ├─
+Duration: 200ms └─ Easing: ease-out
+
+Sidebar Animations: ──────────────────
+
+Expand/Collapse: ├─ Width transition ├─ Icon rotation ├─ Label fade
+in/out ├─ Duration: 250ms └─ Easing: ease-in-out
+
+Mobile Drawer: ├─ Slide from left ├─ Overlay fade in ├─ Duration: 300ms
+└─ Easing: ease-out
+
+Tab Animations: ──────────────
+
+Tab Switch: ├─ Underline slide ├─ Content fade ├─ Duration: 200ms └─
+Easing: ease-in-out
+
+Loading Animations: ──────────────────
+
+Loading Bar: ├─ Indeterminate progress ├─ Blue color ├─ Height: 2px ├─
+Top of page └─ Auto-hide on complete
+
+Spinner: ├─ Circular rotation ├─ 360° continuous ├─ Size: 24px (small),
+48px (large) └─ Color: Primary brand color
+
+Skeleton: ├─ Shimmer effect ├─ Gray gradient sweep ├─ Direction: Left to
+right ├─ Duration: 1.5s loop └─ Easing: linear
+
+Performance Considerations: ──────────────────────────
+
+Use CSS Transforms: ├─ transform: translateX() for slides ├─ transform:
+scale() for modals ├─ opacity for fades └─ GPU acceleration enabled
+
+Avoid: ├─ Animating height/width (use transform) ├─ Multiple
+simultaneous animations ├─ Heavy animations on low-end devices └─
+Animations during data loading
+
+Reduced Motion: ──────────────
+
+IF (user prefers reduced motion): ├─ Disable page transitions ├─ Use
+instant navigation ├─ Keep loading animations (minimal) └─ Respect
+prefers-reduced-motion media query 2.13 MOBILE NAVIGATION TypeScript
+
+MOBILE NAVIGATION SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Mobile Breakpoint: < 768px
+
+Navigation Patterns: ───────────────────
+
+1.  Bottom Navigation (Primary)
+2.  Hamburger Menu (Secondary)
+3.  Swipe Gestures
+4.  Pull-to-Refresh
+
+Bottom Navigation Bar: ─────────────────────
+
+Position: Fixed bottom Items: 5 primary routes Active indicator: Icon
+color + label Badge support: Notification counts
+
+Items: ┌─────┬─────┬─────┬─────┬─────┐ │ 🏠 │ ✨ │ 📝 │ 💬 │ ⚙️ │ │Home
+│Recs │Apps │Chat │More │ └─────┴─────┴─────┴─────┴─────┘
+
+Routes: ├─ Home → /customer/dashboard ├─ Recommendations →
+/customer/recommendations ├─ Applications → /customer/applications ├─
+Chat → /customer/chat └─ More → Opens drawer with remaining options
+
+Hamburger Menu (Drawer): ───────────────────────
+
+Trigger: Top-left menu icon OR “More” in bottom nav Animation: Slide
+from left Overlay: Dark semi-transparent Width: 80% of screen (max
+300px)
+
+Content: ├─ User Profile (top) ├─ Navigation Links │ ├─ Dashboard │ ├─
+Profile │ ├─ Life Events │ ├─ Products │ ├─ Transactions │ ├─ KYC │ ├─
+Goals │ ├─ Voice │ ├─ Notifications │ └─ Settings └─ Logout (bottom)
+
+Swipe Gestures: ──────────────
+
+Swipe Left: Go back (on detail pages) Swipe Right: Open drawer (from
+left edge) Swipe Down: Pull-to-refresh Swipe Up: Scroll content
+
+Pull-to-Refresh: ───────────────
+
+Supported on: ├─ Dashboard ├─ Transactions ├─ Applications └─ Life
+Events
+
+Visual Feedback: ├─ Pull down → Show refresh icon ├─ Release → Trigger
+refresh ├─ Loading → Spinner └─ Complete → Success check
+
+Mobile Header: ─────────────
+
+Layout: ┌──────────────────────────────────────┐ │ ☰ BankMate AI 🔔 👤 │
+└──────────────────────────────────────┘
+
+Left: Menu icon Center: App logo/title or page title Right:
+Notifications + Profile
+
+Collapsing Header: ├─ Scroll up → Header visible ├─ Scroll down → Header
+hides └─ Scroll to top → Header reappears
+
+Mobile Tabs: ───────────
+
+Scrollable Tabs: ├─ Horizontal scroll ├─ Snap to center └─ Active
+indicator
+
+Tab Layout: ┌────────────────────────────────────────┐ │ ← All | Pending
+| Approved | Rejected →│ └────────────────────────────────────────┘
+
+Mobile Modals: ─────────────
+
+Full-Screen Modals: ├─ Slide from bottom ├─ Close: Swipe down or close
+button └─ Header with back/close button
+
+Example: Product Application ┌──────────────────────────────────────┐ │
+← Apply for Wedding Loan ✕ │ ├──────────────────────────────────────┤ │
+│ │ [Form Content] │ │ │ └──────────────────────────────────────┘
+
+Mobile Search: ─────────────
+
+Full-Screen Search: ├─ Tap search → Expand to full screen ├─ Focus input
+immediately ├─ Show recent searches ├─ Live results as you type └─
+Close: Back button or cancel
+
+Back Button Handling: ────────────────────
+
+Android Hardware Back: ├─ Close modal/drawer if open ├─ Go back in
+navigation history ├─ Exit app if at root └─ Confirm before exit
+
+iOS Swipe Back: ├─ Swipe from left edge ├─ Navigate to previous route └─
+Animate page slide
+
+Landscape Mode: ──────────────
+
+Auto-adapt: ├─ Hide bottom nav ├─ Show sidebar (collapsed) ├─ Wider
+content area └─ Maintain functionality 2.14 FUTURE SCALABILITY
+TypeScript
+
+FUTURE SCALABILITY CONSIDERATIONS
+════════════════════════════════════════════════════════════════
+
+Route Versioning: ────────────────
+
+Current: /customer/dashboard Future: /v2/customer/dashboard
+
+Strategy: ├─ Support both versions simultaneously ├─ Gradual migration
+├─ Feature flags for version switching └─ Deprecation notices
+
+Micro-Frontend Support: ──────────────────────
+
+Current: Monolithic routing Future: Federated modules
+
+Structure: ├─ Shell App (navigation, auth) ├─ Customer Module (customer
+routes) ├─ Admin Module (admin routes) ├─ Products Module (product
+catalog) └─ Chat Module (AI chat)
+
+Multi-Tenancy: ─────────────
+
+Current: Single tenant Future: Multi-tenant
+
+Routes: /:tenant/customer/dashboard /:tenant/admin/dashboard
+
+White-Label Support: ───────────────────
+
+Current: BankMate branding Future: Custom branding per tenant
+
+Configuration: ├─ Load theme by tenant ├─ Custom logo/colors ├─
+Tenant-specific features └─ Isolated routing
+
+Internationalization: ────────────────────
+
+Current: English default Future: Multi-language
+
+Routes: /en/customer/dashboard /hi/customer/dashboard
+/mr/customer/dashboard
+
+OR query param: ?lang=hi
+
+A/B Testing Routes: ──────────────────
+
+Current: Single route per feature Future: Variant routes
+
+Example: /customer/dashboard → Control /customer/dashboard-v2 → Variant
+A /customer/dashboard-v3 → Variant B
+
+Feature Flags determine which variant
+
+Progressive Web App (PWA): ─────────────────────────
+
+Current: Web app Future: Installable PWA
+
+Requirements: ├─ Offline route support ├─ Service worker routing ├─
+Cache-first strategy ├─ Fallback routes └─ Sync when online
+
+Native App Integration: ──────────────────────
+
+Current: Web only Future: React Native
+
+Shared routing logic: ├─ Common route definitions ├─ Platform-specific
+navigation ├─ Deep link handling └─ State synchronization 2.15 MERMAID
+ROUTE FLOW DIAGRAM mermaid
+
+graph TB Start([User Opens App]) –> CheckAuth{Authenticated?}
+
+    CheckAuth -->|No| Public[Public Routes]
+    CheckAuth -->|Yes| CheckRole{Check Role}
+
+    Public --> Landing[Landing Page]
+    Public --> AuthRoutes[Auth Routes]
+
+    AuthRoutes --> Login[Login Page]
+    AuthRoutes --> Register[Register Page]
+
+    Login --> LoginSuccess{Login Success?}
+    LoginSuccess -->|Yes| SaveToken[Save Token]
+    LoginSuccess -->|No| LoginError[Show Error]
+
+    SaveToken --> CheckRole
+
+    CheckRole -->|Customer| CheckProfile{Profile Complete?}
+    CheckRole -->|Admin| AdminDash[Admin Dashboard]
+    CheckRole -->|RM| RMDash[RM Dashboard]
+
+    CheckProfile -->|No| Onboarding[Onboarding Flow]
+    CheckProfile -->|Yes| CustomerDash[Customer Dashboard]
+
+    Onboarding --> OnboardComplete[Profile Complete]
+    OnboardComplete --> CustomerDash
+
+    CustomerDash --> CustomerNav{Customer Navigation}
+
+    CustomerNav --> Profile[Profile Routes]
+    CustomerNav --> LifeEvents[Life Events Routes]
+    CustomerNav --> Recs[Recommendations Routes]
+    CustomerNav --> Products[Products Routes]
+    CustomerNav --> Apps[Applications Routes]
+    CustomerNav --> KYC[KYC Routes]
+    CustomerNav --> Txns[Transaction Routes]
+    CustomerNav --> Chat[Chat Routes]
+    CustomerNav --> Voice[Voice Routes]
+    CustomerNav --> Settings[Settings Routes]
+
+    Products --> ProductDetails[Product Details]
+    ProductDetails --> ApplyCheck{KYC Complete?}
+
+    ApplyCheck -->|Yes| Apply[Apply for Product]
+    ApplyCheck -->|No| KYCRequired[Redirect to KYC]
+
+    Apply --> AppSuccess[Application Submitted]
+    AppSuccess --> Apps
+
+    KYCRequired --> KYC
+    KYC --> KYCDocs[Upload Documents]
+    KYCDocs --> KYCVerify[Verification]
+    KYCVerify --> KYCSuccess{Approved?}
+
+    KYCSuccess -->|Yes| BackToApply[Back to Application]
+    KYCSuccess -->|No| KYCRetry[Retry KYC]
+
+    AdminDash --> AdminNav{Admin Navigation}
+    AdminNav --> Customers[Customer Management]
+    AdminNav --> AdminProducts[Product Management]
+    AdminNav --> Config[Configuration]
+    AdminNav --> Campaigns[Campaign Management]
+    AdminNav --> Analytics[Analytics]
+    AdminNav --> Monitoring[Monitoring]
+
+    RMDash --> RMNav{RM Navigation}
+    RMNav --> RMCustomers[My Customers]
+    RMNav --> Leads[Leads]
+    RMNav --> Tasks[Tasks]
+    RMNav --> Calendar[Calendar]
+
+    Logout[Logout] --> ClearToken[Clear Token]
+    ClearToken --> Landing
+
+    Error404[404 Not Found] --> NotFoundPage[Show 404 Page]
+    Error403[403 Forbidden] --> ForbiddenPage[Show 403 Page]
+    Error500[500 Server Error] --> ErrorPage[Show Error Page]
+
+✅ SECTION 2 COMPLIANCE CHECK text
+
+COMPLIANCE VERIFICATION
+════════════════════════════════════════════════════════════════
+
+✅ Backend Architecture: UNCHANGED ✅ Database Schema: UNCHANGED ✅ API
+Endpoints: UNCHANGED (only mapped) ✅ AI Agents: UNCHANGED ✅ Kafka
+Events: UNCHANGED ✅ Redis Strategy: UNCHANGED ✅ Business Logic:
+UNCHANGED ✅ Dynamic Configuration: UNCHANGED
+
+✅ New Content: Frontend Routing & Navigation only ✅ Documentation
+Style: Maintained ✅ No React Code: Confirmed ✅ No TypeScript Code:
+Confirmed ✅ Documentation Only: Confirmed
+
+SECTION 2 DELIVERABLES:
+═══════════════════════════════════════════════════════════════
+
+✅ 2.1 Complete Route Architecture (7 route types defined) ✅ 2.2 Route
+Guards (5 guard types specified) ✅ 2.3 Navigation Hierarchy (3
+role-based trees) ✅ 2.4 Sidebar Navigation (3 layouts) ✅ 2.5
+Breadcrumb Strategy ✅ 2.6 Deep Linking ✅ 2.7 Route Parameters ✅ 2.8
+Navigation State ✅ 2.9 Lazy Loading Strategy ✅ 2.10 Route-level Error
+Handling ✅ 2.11 Loading Strategy ✅ 2.12 Navigation Animation Rules ✅
+2.13 Mobile Navigation ✅ 2.14 Future Scalability ✅ 2.15 Mermaid Route
+Flow Diagram
+
+Total Pages of Documentation: ~25 pages Total Routes Defined: 100+
+routes Total Guards: 5 guard types Total Layouts: 5 layouts 📋 SECTION 2
+SUMMARY Section 2: Routing & Navigation Architecture is now complete.
+
+This section provides:
+
+✅ 100+ routes mapped to existing backend APIs ✅ 5 route guard types
+for security and access control ✅ 3 complete navigation hierarchies
+(Customer, Admin, RM) ✅ Sidebar navigation for all user roles ✅
+Breadcrumb strategy for all routes ✅ Deep linking for email/SMS/push
+notifications ✅ Lazy loading strategy for performance ✅ Mobile
+navigation patterns ✅ Error handling for all error types ✅ Loading
+states for all scenarios ✅ Navigation animations for smooth UX ✅
+Future scalability considerations All routes map to existing backend
+APIs defined in the original blueprint.
+
+No business logic has been modified.
+
+No backend architecture has been changed.
+
+[1] 0-9a-f

@@ -1,0 +1,743 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+/* ── TOKYO NIGHT PALETTE ─────────────────────────────────── */
+:root {
+  --bg: #1a1b26;
+  --bg-dark: #16161e;
+  --bg-light: #24283b;
+  --bg-panel: #1f2335;
+
+  --fg: #c0caf5;
+  --fg-muted: #a9b1d6;
+  --comment: #565f89;
+
+  --blue: #7aa2f7;
+  --cyan: #7dcfff;
+  --green: #9ece6a;
+  --yellow: #e0af68;
+  --red: #f7768e;
+  --purple: #bb9af7;
+
+  --border: #414868;
+}
+
+/* ── RESET ───────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── HERO WRAPPER ────────────────────────────────────────── */
+.hero {
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--bg-dark);
+  min-height: calc(100vh - 58px);
+  position: relative;
+  overflow: visible;
+  /* FIX: was hidden — was clipping the stats section */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Removed static dot grid as it is now handled by Canvas */
+
+/* vignette — FIX: z-index: 1 so it stays below all content */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* FIX: was missing — was layering over stats */
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, transparent 40%, var(--bg-dark) 100%);
+  pointer-events: none;
+}
+
+/* ── EDITION BAR ─────────────────────────────────────────── */
+.hero-edition {
+  position: relative;
+  z-index: 2;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-dark);
+  padding: 7px 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hero-edition-left {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--comment);
+}
+
+.hero-edition-left span {
+  color: var(--yellow);
+}
+
+.hero-edition-right {
+  display: flex;
+  gap: 18px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--comment);
+}
+
+.hero-edition-tag {
+  color: var(--cyan);
+  border: 1px solid rgba(125, 207, 255, 0.3);
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+/* ── MAIN GRID ───────────────────────────────────────────── */
+.hero-main {
+  position: relative;
+  z-index: 2;
+  max-width: 1500px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 64px 1rem;
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 64px;
+  align-items: center;
+}
+
+/* ── LEFT ────────────────────────────────────────────────── */
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.hero-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--comment);
+}
+
+.hero-kicker::before,
+.hero-kicker::after {
+  content: '';
+  flex: 0 0 20px;
+  height: 1px;
+  background: var(--border);
+}
+
+.hero-kicker span {
+  color: var(--yellow);
+}
+
+.hero-heading {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(28px, 4.5vw, 52px);
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.15;
+}
+
+.hero-heading em {
+  font-style: normal;
+  color: var(--blue);
+}
+
+.hero-heading .accent {
+  color: var(--cyan);
+  display: block;
+}
+
+.hero-sub {
+  font-family: 'Crimson Text', serif;
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--fg-muted);
+  max-width: 520px;
+  border-left: 2px solid var(--border);
+  padding-left: 16px;
+}
+
+.hero-sub strong {
+  color: var(--fg);
+}
+
+/* ── SEARCH BAR ──────────────────────────────────────────── */
+.hero-prompt {
+  display: flex;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  max-width: 500px;
+  transition: border-color 0.2s;
+}
+
+.hero-prompt:focus-within {
+  border-color: var(--blue);
+}
+
+.hero-prompt-label {
+  font-size: 12px;
+  color: var(--green);
+  padding: 0 12px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  background: var(--bg-light);
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.hero-prompt input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--fg);
+  padding: 0 14px;
+  height: 44px;
+}
+
+.hero-prompt input::placeholder {
+  color: var(--comment);
+}
+
+.hero-prompt-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--bg-dark);
+  background: var(--blue);
+  border: none;
+  padding: 0 18px;
+  cursor: pointer;
+  transition: background 0.18s;
+  flex-shrink: 0;
+}
+
+.hero-prompt-btn:hover {
+  background: #5d7fe8;
+}
+
+/* ── CTA ─────────────────────────────────────────────────── */
+.hero-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hero-btn-primary {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--bg-dark);
+  background: var(--blue);
+  border: 1px solid var(--blue);
+  padding: 10px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.18s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hero-btn-primary:hover {
+  background: #5d7fe8;
+  border-color: #5d7fe8;
+}
+
+.hero-btn-secondary {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 10px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hero-btn-secondary:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+  background: rgba(169, 177, 214, 0.06);
+}
+
+.hero-cta-note {
+  font-size: 9px;
+  color: var(--comment);
+  letter-spacing: 0.06em;
+}
+
+/* ── TERMINAL ────────────────────────────────────────────── */
+.hero-right {
+  position: relative;
+  /* needed for .hero-terminal-badge absolute positioning */
+  padding-bottom: 20px;
+}
+
+.hero-terminal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.hero-terminal-bar {
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-terminal-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.hero-terminal-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.hero-terminal-dots span:nth-child(1) {
+  background: var(--red);
+}
+
+.hero-terminal-dots span:nth-child(2) {
+  background: var(--yellow);
+}
+
+.hero-terminal-dots span:nth-child(3) {
+  background: var(--green);
+}
+
+.hero-terminal-title {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--comment);
+}
+
+.hero-terminal-body {
+  padding: 20px 22px 24px;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--fg-muted);
+}
+
+/* terminal line helpers */
+.t-line {
+  display: block;
+}
+
+.t-indent {
+  padding-left: 18px;
+}
+
+.t-comment {
+  color: var(--comment);
+}
+
+.t-prompt {
+  color: var(--green);
+}
+
+.t-cmd {
+  color: var(--fg);
+}
+
+.t-key {
+  color: var(--blue);
+}
+
+.t-val {
+  color: var(--cyan);
+}
+
+.t-string {
+  color: var(--yellow);
+}
+
+.t-success {
+  color: var(--green);
+}
+
+.t-muted {
+  color: var(--comment);
+}
+
+.t-purple {
+  color: var(--purple);
+}
+
+.t-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: var(--blue);
+  vertical-align: middle;
+  margin-left: 2px;
+  animation: cursor-blink 1.1s steps(1) infinite;
+}
+
+@keyframes cursor-blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+.hero-terminal-badge {
+  position: absolute;
+  bottom: -14px;
+  right: 24px;
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--fg-muted);
+  letter-spacing: 0.05em;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.hero-terminal-badge strong {
+  color: var(--green);
+  font-weight: 500;
+}
+
+/* ── STATS ───────────────────────────────────────────────── */
+/* FIX: position + z-index so it renders above the ::after vignette */
+.hero-stats {
+  position: relative;
+  z-index: 2;
+  max-width: 1500px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 0px 0px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.hero-stat {
+  background: var(--bg-panel);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  transition: background 0.18s;
+  cursor: default;
+}
+
+.hero-stat:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--border);
+}
+
+.hero-stat:hover {
+  background: var(--bg-light);
+}
+
+.hero-stat-icon {
+  color: var(--blue);
+  margin-bottom: 6px;
+}
+
+.hero-stat-value {
+  font-family: 'Cinzel', serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1;
+}
+
+.hero-stat-value span {
+  color: var(--blue);
+}
+
+.hero-stat-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--comment);
+  margin-top: 4px;
+}
+
+.hero-stat-delta {
+  font-size: 9px;
+  color: var(--green);
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+/* ── SEARCH SECTION ─────────────────────────────────────── */
+.search-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 500px;
+}
+
+.search-cats {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.cat-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--comment);
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cat-btn:hover {
+  color: var(--fg-muted);
+  border-color: var(--comment);
+}
+
+.cat-btn.active {
+  color: var(--blue);
+  border-color: rgba(122, 162, 247, 0.5);
+  background: rgba(122, 162, 247, 0.08);
+}
+
+.search-input-outer {
+  position: relative;
+}
+
+/* override hero-prompt overflow for dropdown to escape */
+.hero-prompt {
+  overflow: visible !important;
+  border-radius: 4px;
+}
+
+/* focused state via class (supplement :focus-within) */
+.hero-prompt.focused {
+  border-color: var(--blue);
+}
+
+/* ── DROPDOWN ── */
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+}
+
+.search-dropdown-header {
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--comment);
+  padding: 8px 14px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.search-dropdown-item:hover,
+.search-dropdown-item.highlighted {
+  background: rgba(122, 162, 247, 0.1);
+  color: var(--fg);
+}
+
+.sdi-arrow {
+  color: var(--cyan);
+  font-size: 9px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.sdi-cat {
+  font-size: 8.5px;
+  color: var(--comment);
+  margin-left: auto;
+  flex-shrink: 0;
+  letter-spacing: 0.06em;
+}
+
+.search-dropdown-empty {
+  padding: 12px 14px;
+  font-size: 11px;
+  color: var(--comment);
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── ENTRY ANIMATIONS ────────────────────────────────────── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-kicker {
+  animation: fadeUp 0.45s ease 0.05s both;
+}
+
+.hero-heading {
+  animation: fadeUp 0.45s ease 0.12s both;
+}
+
+.hero-sub {
+  animation: fadeUp 0.45s ease 0.20s both;
+}
+
+.hero-prompt {
+  animation: fadeUp 0.45s ease 0.27s both;
+}
+
+.hero-cta {
+  animation: fadeUp 0.45s ease 0.34s both;
+}
+
+.hero-right {
+  animation: fadeUp 0.50s ease 0.18s both;
+}
+
+.hero-stats {
+  animation: fadeUp 0.45s ease 0.42s both;
+}
+
+.hero-edition {
+  animation: fadeUp 0.40s ease 0.00s both;
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .hero-main {
+    grid-template-columns: 1fr;
+    padding: 48px 32px;
+    gap: 48px;
+  }
+
+  .hero-sub {
+    max-width: 100%;
+  }
+
+  .hero-stats {
+    grid-template-columns: repeat(2, 1fr);
+    margin: 0;
+    padding: 0;
+  }
+
+  .hero-stat:nth-child(2)::after {
+    display: none;
+  }
+
+  .hero-stat:nth-child(3) {
+    border-top: 1px solid var(--border);
+  }
+
+  .hero-stat:nth-child(4) {
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-edition {
+    padding: 7px 20px;
+  }
+
+  .hero-edition-right {
+    display: none;
+  }
+
+  .hero-main {
+    padding: 36px 2px 24px;
+    gap: 36px;
+  }
+
+  .hero-heading {
+    font-size: clamp(24px, 8vw, 36px);
+  }
+
+  .hero-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hero-prompt {
+    max-width: 100%;
+  }
+
+  .hero-sub {
+    font-size: 15px;
+  }
+}

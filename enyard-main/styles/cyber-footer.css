@@ -1,0 +1,471 @@
+/* ── CYBER FOOTER ────────────────────────────────────────── */
+
+/* ── CSS VARIABLES (Tokyo Night palette — mirrors hero/faq) ─ */
+:root {
+  --bg-dark:   #1a1b26;
+  --bg-panel:  #1f2335;
+  --bg-light:  #24283b;
+  --fg:        #c0caf5;
+  --fg-muted:  #9aa5ce;
+  --comment:   #565f89;
+  --border:    #292e42;
+  --blue:      #7aa2f7;
+  --cyan:      #7dcfff;
+  --green:     #9ece6a;
+  --yellow:    #e0af68;
+  --red:       #f7768e;
+  --purple:    #bb9af7;
+}
+
+/* ── ROOT ─────────────────────────────────────────────────── */
+.cf {
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--bg-dark);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Removed static dot grid as it is now handled by Canvas */
+
+/* top border rule */
+.cf-top-rule {
+  position: relative;
+  z-index: 1;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--border) 15%,
+    var(--blue)   50%,
+    var(--border) 85%,
+    transparent  100%
+  );
+}
+
+/* ── ANIMATED MATRIX CANVAS ──────────────────────────────── */
+.cf-canvas-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-dark) 100%);
+  border-bottom: 1px solid var(--border);
+}
+
+.cf-matrix-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* fade-out top + bottom inside the canvas strip */
+.cf-canvas-wrap::before,
+.cf-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 60px;
+  z-index: 2;
+  pointer-events: none;
+}
+.cf-canvas-wrap::before {
+  top: 0;
+  background: linear-gradient(180deg, var(--bg-panel), transparent);
+}
+.cf-canvas-wrap::after {
+  bottom: 0;
+  background: linear-gradient(0deg, var(--bg-dark), transparent);
+}
+
+/* centered overlay text on canvas */
+.cf-canvas-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.cf-canvas-logo {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(22px, 3vw, 38px);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--fg);
+  text-shadow:
+    0 0 20px rgba(122, 162, 247, 0.45),
+    0 0 60px rgba(122, 162, 247, 0.15);
+}
+
+.cf-canvas-logo em {
+  color: var(--blue);
+  font-style: normal;
+}
+
+.cf-canvas-tagline {
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--comment);
+}
+
+/* ── INNER GRID ───────────────────────────────────────────── */
+.cf-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 64px 40px 0;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+}
+
+/* ── BRAND COL ───────────────────────────────────────────── */
+.cf-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  text-decoration: none;
+}
+
+.cf-brand-prompt {
+  font-size: 15px;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.cf-brand-name {
+  font-family: 'Cinzel', serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+}
+
+.cf-brand-desc {
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--fg-muted);
+  border-left: 2px solid var(--border);
+  padding-left: 14px;
+  margin-bottom: 20px;
+}
+
+/* newsletter */
+.cf-newsletter-label {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--comment);
+  margin-bottom: 10px;
+}
+
+.cf-newsletter-row {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-panel);
+  transition: border-color 0.18s;
+}
+
+.cf-newsletter-row:focus-within {
+  border-color: var(--blue);
+}
+
+.cf-newsletter-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 9px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--fg);
+  letter-spacing: 0.04em;
+}
+
+.cf-newsletter-input::placeholder {
+  color: var(--comment);
+}
+
+.cf-newsletter-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 0 16px;
+  background: var(--blue);
+  color: var(--bg-dark);
+  border: none;
+  cursor: pointer;
+  transition: background 0.18s;
+  white-space: nowrap;
+}
+
+.cf-newsletter-btn:hover {
+  background: #5d7fe8;
+}
+
+/* social icons */
+.cf-socials {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cf-social-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-panel);
+  color: var(--comment);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-decoration: none;
+}
+
+.cf-social-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: rgba(122, 162, 247, 0.08);
+}
+
+/* ── LINK COLUMNS ────────────────────────────────────────── */
+.cf-col-title {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--fg);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cf-col-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.cf-col-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.cf-col-links li a {
+  font-size: 11px;
+  color: var(--fg-muted);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.16s;
+}
+
+.cf-col-links li a::before {
+  content: '▸';
+  font-size: 8px;
+  color: var(--border);
+  transition: color 0.16s;
+}
+
+.cf-col-links li a:hover {
+  color: var(--blue);
+}
+
+.cf-col-links li a:hover::before {
+  color: var(--blue);
+}
+
+/* badges beside links */
+.cf-link-badge {
+  font-size: 7.5px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  border: 1px solid;
+  letter-spacing: 0.08em;
+  margin-left: auto;
+}
+
+.cf-link-badge-red   { color: var(--red);    border-color: rgba(247,118,142,0.35); background: rgba(247,118,142,0.07); }
+.cf-link-badge-green { color: var(--green);  border-color: rgba(158,206,106,0.35); background: rgba(158,206,106,0.07); }
+.cf-link-badge-blue  { color: var(--blue);   border-color: rgba(122,162,247,0.35); background: rgba(122,162,247,0.07); }
+
+/* ── STATUS TICKER ───────────────────────────────────────── */
+.cf-status-row {
+  position: relative;
+  z-index: 1;
+  max-width: 1500px;
+  margin: 48px auto 0;
+  padding: 0 40px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cf-status-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--comment);
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-panel);
+}
+
+.cf-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cf-status-dot-green  { background: var(--green);  box-shadow: 0 0 5px var(--green);  animation: blink 2.2s ease-in-out infinite; }
+.cf-status-dot-yellow { background: var(--yellow); box-shadow: 0 0 5px var(--yellow); animation: blink 1.8s ease-in-out infinite 0.4s; }
+.cf-status-dot-blue   { background: var(--blue);   box-shadow: 0 0 5px var(--blue);   animation: blink 3s   ease-in-out infinite 0.9s; }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+/* ── STREAM BAR ──────────────────────────────────────────── */
+.cf-stream {
+  position: relative;
+  z-index: 1;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: 8px 0;
+  overflow: hidden;
+}
+
+.cf-stream-track {
+  white-space: nowrap;
+  animation: cf-scroll 18s linear infinite;
+  font-size: 8.5px;
+  letter-spacing: 0.07em;
+  color: var(--comment);
+}
+
+@keyframes cf-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.cf-stream-track span { color: var(--green);  margin: 0 18px; }
+.cf-stream-track em   { color: var(--blue);   font-style: normal; margin: 0 18px; }
+.cf-stream-track b    { color: var(--yellow); font-weight: normal; margin: 0 18px; }
+
+/* ── BOTTOM BAR ──────────────────────────────────────────── */
+.cf-bottom {
+  position: relative;
+  z-index: 1;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 20px 40px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cf-bottom-left {
+  font-size: 9.5px;
+  color: var(--comment);
+  letter-spacing: 0.06em;
+  line-height: 1.7;
+}
+
+.cf-bottom-left strong {
+  color: var(--fg-muted);
+}
+
+.cf-bottom-right {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.cf-bottom-right a {
+  font-size: 9.5px;
+  color: var(--comment);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  transition: color 0.16s;
+}
+
+.cf-bottom-right a:hover {
+  color: var(--blue);
+}
+
+.cf-version-chip {
+  font-size: 8.5px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--comment);
+  background: var(--bg-panel);
+  letter-spacing: 0.08em;
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .cf-inner {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+}
+
+@media (max-width: 640px) {
+  .cf-inner {
+    grid-template-columns: 1fr;
+    padding: 48px 20px 0;
+    gap: 36px;
+  }
+
+  .cf-status-row,
+  .cf-bottom {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .cf-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cf-bottom-right {
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+}

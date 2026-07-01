@@ -1,0 +1,7 @@
+{
+  "appName": "BankMate AI",
+  "environment": "development",
+  "apiPrefix": "/api",
+  "supportedLocales": ["en", "hi", "mr"],
+  "defaultLocale": "en"
+}

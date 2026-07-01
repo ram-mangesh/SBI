@@ -1,0 +1,327 @@
+BANKMATE AI - COMPLETE FRONTEND ARCHITECTURE BLUEPRINT 📋 DOCUMENT
+METADATA text
+
+Document Type: Frontend Architecture Specification Version: 1.0.0
+Status: DRAFT - PENDING APPROVAL Created: 2024-01-20 Last Updated:
+2024-01-20 Author: Senior Enterprise Solution Architect Team
+Classification: CONFIDENTIAL - INTERNAL USE ONLY ⚠️ CRITICAL COMPLIANCE
+NOTICE text
+
+THIS DOCUMENT EXTENDS THE EXISTING BANKMATE AI BLUEPRINT.
+
+✅ BACKEND ARCHITECTURE - UNCHANGED ✅ DATABASE SCHEMA - UNCHANGED
+✅ KAFKA EVENTS - UNCHANGED ✅ REDIS STRATEGY - UNCHANGED ✅ AI AGENTS -
+UNCHANGED ✅ BUSINESS LOGIC - UNCHANGED ✅ DYNAMIC CONFIGURATION -
+UNCHANGED
+
+❌ DO NOT MODIFY EXISTING ARCHITECTURE ❌ DO NOT SIMPLIFY FEATURES ❌ DO
+NOT REMOVE MODULES ❌ DO NOT CHANGE FLOWS
+
+✓ ONLY ADDING FRONTEND SPECIFICATION ✓ MAPPING TO EXISTING BACKEND APIs
+✓ FOLLOWING EXISTING BUSINESS RULES 📚 TABLE OF CONTENTS SECTION 1:
+PROJECT STRUCTURE 1.1 Complete React Project Folder Structure 1.2 Module
+Organization 1.3 File Naming Conventions 1.4 Code Organization
+Principles
+
+SECTION 2: ROUTING & NAVIGATION 2.1 App Routing Architecture 2.2 Route
+Configuration 2.3 Protected Routes 2.4 Route Guards 2.5 Deep Linking
+Strategy
+
+SECTION 3: LAYOUT ARCHITECTURE 3.1 Layout System 3.2 Layout Components
+3.3 Layout Composition 3.4 Responsive Breakpoints
+
+SECTION 4: AUTHENTICATION FLOW 4.1 Login Flow 4.2 Registration Flow 4.3
+OTP Verification 4.4 Session Management 4.5 Token Refresh Strategy
+
+SECTION 5: CUSTOMER JOURNEY SCREENS 5.1 Welcome Screen 5.2 Profile Setup
+Wizard 5.3 Life Event Detection Screen 5.4 Recommendation Viewing 5.5
+Product Application Screens
+
+🏗️ SECTION 1: PROJECT STRUCTURE 1.1 COMPLETE REACT PROJECT FOLDER
+STRUCTURE text
+
+bankmate-ai-frontend/ │ ├── public/ │ ├── assets/ │ │ ├── images/ │ │ │
+├── logo/ │ │ │ │ ├── logo-light.svg │ │ │ │ ├── logo-dark.svg │ │ │ │
+├── logo-icon.svg │ │ │ │ └── favicon.ico │ │ │ ├── illustrations/ │ │ │
+│ ├── onboarding/ │ │ │ │ ├── life-events/ │ │ │ │ ├── products/ │ │ │ │
+└── empty-states/ │ │ │ ├── avatars/ │ │ │ └── backgrounds/ │ │ ├──
+icons/ │ │ │ ├── customer-types/ │ │ │ ├── life-events/ │ │ │ ├──
+products/ │ │ │ └── notifications/ │ │ └── animations/ │ │ ├── lottie/ │
+│ └── video/ │ ├── locales/ │ │ ├── en/ │ │ │ ├── common.json │ │ │ ├──
+customer.json │ │ │ ├── products.json │ │ │ └── errors.json │ │ ├── hi/
+│ │ └── mr/ │ └── config/ │ ├── app-config.json │ └── feature-flags.json
+│ ├── src/ │ │ │ ├── app/ │ │ ├── App.tsx │ │ ├── AppProviders.tsx │ │
+├── AppRoutes.tsx │ │ └── AppInitializer.tsx │ │ │ ├── core/ │ │ ├──
+api/ │ │ │ ├── client/ │ │ │ │ ├── axios-instance.ts │ │ │ │ ├──
+request-interceptor.ts │ │ │ │ ├── response-interceptor.ts │ │ │ │ └──
+error-handler.ts │ │ │ ├── endpoints/ │ │ │ │ ├── auth.api.ts │ │ │ │
+├── customer.api.ts │ │ │ │ ├── life-events.api.ts │ │ │ │ ├──
+products.api.ts │ │ │ │ ├── recommendations.api.ts │ │ │ │ ├──
+applications.api.ts │ │ │ │ ├── kyc.api.ts │ │ │ │ ├──
+transactions.api.ts │ │ │ │ ├── chat.api.ts │ │ │ │ ├──
+notifications.api.ts │ │ │ │ ├── voice.api.ts │ │ │ │ ├──
+analytics.api.ts │ │ │ │ └── admin.api.ts │ │ │ └── index.ts │ │ │ │ │
+├── config/ │ │ │ ├── app.config.ts │ │ │ ├── env.config.ts │ │ │ ├──
+routes.config.ts │ │ │ ├── api.config.ts │ │ │ └── theme.config.ts │ │ │
+│ │ ├── constants/ │ │ │ ├── app.constants.ts │ │ │ ├──
+customer-types.constants.ts │ │ │ ├── life-events.constants.ts │ │ │ ├──
+products.constants.ts │ │ │ ├── kyc.constants.ts │ │ │ └──
+error-codes.constants.ts │ │ │ │ │ ├── types/ │ │ │ ├── api/ │ │ │ │ ├──
+request.types.ts │ │ │ │ └── response.types.ts │ │ │ ├── domain/ │ │ │ │
+├── customer.types.ts │ │ │ │ ├── life-event.types.ts │ │ │ │ ├──
+product.types.ts │ │ │ │ ├── recommendation.types.ts │ │ │ │ ├──
+application.types.ts │ │ │ │ ├── kyc.types.ts │ │ │ │ ├──
+transaction.types.ts │ │ │ │ ├── chat.types.ts │ │ │ │ └──
+notification.types.ts │ │ │ ├── ui/ │ │ │ │ ├── component.types.ts │ │ │
+│ └── theme.types.ts │ │ │ └── index.ts │ │ │ │ │ └── utils/ │ │ ├──
+date.utils.ts │ │ ├── currency.utils.ts │ │ ├── validation.utils.ts │ │
+├── formatting.utils.ts │ │ ├── storage.utils.ts │ │ ├──
+encryption.utils.ts │ │ └── logger.utils.ts │ │ │ ├── features/ │ │ │ │
+│ ├── auth/ │ │ │ ├── components/ │ │ │ │ ├── LoginForm.tsx │ │ │ │ ├──
+RegisterForm.tsx │ │ │ │ ├── OTPInput.tsx │ │ │ │ ├── ForgotPassword.tsx
+│ │ │ │ └── SocialLogin.tsx │ │ │ ├── pages/ │ │ │ │ ├── LoginPage.tsx │
+│ │ │ ├── RegisterPage.tsx │ │ │ │ ├── OTPVerificationPage.tsx │ │ │ │
+└── ResetPasswordPage.tsx │ │ │ ├── hooks/ │ │ │ │ ├── useAuth.ts │ │ │
+│ ├── useLogin.ts │ │ │ │ ├── useRegister.ts │ │ │ │ └── useOTP.ts │ │ │
+├── store/ │ │ │ │ └── auth.store.ts │ │ │ └── types/ │ │ │ └──
+auth.types.ts │ │ │ │ │ ├── customer/ │ │ │ ├── components/ │ │ │ │ ├──
+ProfileCard.tsx │ │ │ │ ├── ProfileEditor.tsx │ │ │ │ ├──
+CustomerTypeIndicator.tsx │ │ │ │ ├── RiskProfileBadge.tsx │ │ │ │ └──
+FinancialSnapshot.tsx │ │ │ ├── pages/ │ │ │ │ ├── ProfilePage.tsx │ │ │
+│ ├── ProfileSetupWizard.tsx │ │ │ │ └── ProfileEditPage.tsx │ │ │ ├──
+hooks/ │ │ │ │ ├── useCustomer.ts │ │ │ │ ├── useCustomerType.ts │ │ │ │
+└── useProfile.ts │ │ │ └── store/ │ │ │ └── customer.store.ts │ │ │ │ │
+├── onboarding/ │ │ │ ├── components/ │ │ │ │ ├── WelcomeScreen.tsx │ │
+│ │ ├── OnboardingStep.tsx │ │ │ │ ├── ProgressIndicator.tsx │ │ │ │ ├──
+PersonalInfoStep.tsx │ │ │ │ ├── EmploymentInfoStep.tsx │ │ │ │ ├──
+FinancialInfoStep.tsx │ │ │ │ └── PreferencesStep.tsx │ │ │ ├── pages/ │
+│ │ │ └── OnboardingFlow.tsx │ │ │ ├── hooks/ │ │ │ │ ├──
+useOnboarding.ts │ │ │ │ └── useOnboardingSteps.ts │ │ │ └── store/ │ │
+│ └── onboarding.store.ts │ │ │ │ │ ├── life-events/ │ │ │ ├──
+components/ │ │ │ │ ├── LifeEventBanner.tsx │ │ │ │ ├──
+LifeEventCard.tsx │ │ │ │ ├── LifeEventTimeline.tsx │ │ │ │ ├──
+LifeEventDetectionInfo.tsx │ │ │ │ ├── ConfidenceScoreMeter.tsx │ │ │ │
+└── StageIndicator.tsx │ │ │ ├── pages/ │ │ │ │ ├── LifeEventsPage.tsx │
+│ │ │ └── LifeEventDetailsPage.tsx │ │ │ ├── hooks/ │ │ │ │ ├──
+useLifeEvents.ts │ │ │ │ ├── useLifeEventDetection.ts │ │ │ │ └──
+useLifeEventStages.ts │ │ │ └── store/ │ │ │ └── life-events.store.ts │
+│ │ │ │ ├── recommendations/ │ │ │ ├── components/ │ │ │ │ ├──
+RecommendationCard.tsx │ │ │ │ ├── RecommendationGrid.tsx │ │ │ │ ├──
+MatchScoreBadge.tsx │ │ │ │ ├── AffordabilityIndicator.tsx │ │ │ │ ├──
+StageFilter.tsx │ │ │ │ ├── ProductComparison.tsx │ │ │ │ └──
+RecommendationDetails.tsx │ │ │ ├── pages/ │ │ │ │ ├──
+RecommendationsPage.tsx │ │ │ │ └── RecommendationDetailsPage.tsx │ │ │
+├── hooks/ │ │ │ │ ├── useRecommendations.ts │ │ │ │ ├──
+useAffordability.ts │ │ │ │ └── useMatchScore.ts │ │ │ └── store/ │ │ │
+└── recommendations.store.ts │ │ │ │ │ ├── products/ │ │ │ ├──
+components/ │ │ │ │ ├── ProductCard.tsx │ │ │ │ ├── ProductGrid.tsx │ │
+│ │ ├── ProductDetails.tsx │ │ │ │ ├── ProductCatalog.tsx │ │ │ │ ├──
+CategoryFilter.tsx │ │ │ │ ├── EligibilityChecker.tsx │ │ │ │ ├──
+EMICalculator.tsx │ │ │ │ └── ProductFeatures.tsx │ │ │ ├── pages/ │ │ │
+│ ├── ProductsPage.tsx │ │ │ │ ├── ProductDetailsPage.tsx │ │ │ │ └──
+ProductComparisonPage.tsx │ │ │ ├── hooks/ │ │ │ │ ├── useProducts.ts │
+│ │ │ ├── useProductDetails.ts │ │ │ │ ├── useEligibility.ts │ │ │ │ └──
+useEMICalculation.ts │ │ │ └── store/ │ │ │ └── products.store.ts │ │ │
+│ │ ├── applications/ │ │ │ ├── components/ │ │ │ │ ├──
+ApplicationForm.tsx │ │ │ │ ├── ApplicationCard.tsx │ │ │ │ ├──
+ApplicationList.tsx │ │ │ │ ├── ApplicationTimeline.tsx │ │ │ │ ├──
+StatusBadge.tsx │ │ │ │ ├── DocumentUploadSection.tsx │ │ │ │ └──
+ApplicationSummary.tsx │ │ │ ├── pages/ │ │ │ │ ├── ApplicationsPage.tsx
+│ │ │ │ ├── NewApplicationPage.tsx │ │ │ │ ├──
+ApplicationDetailsPage.tsx │ │ │ │ └── ApplicationStatusPage.tsx │ │ │
+├── hooks/ │ │ │ │ ├── useApplications.ts │ │ │ │ ├──
+useApplicationSubmit.ts │ │ │ │ └── useApplicationStatus.ts │ │ │ └──
+store/ │ │ │ └── applications.store.ts │ │ │ │ │ ├── kyc/ │ │ │ ├──
+components/ │ │ │ │ ├── KYCWizard.tsx │ │ │ │ ├── DocumentUpload.tsx │ │
+│ │ ├── DocumentScanner.tsx │ │ │ │ ├── DocumentPreview.tsx │ │ │ │ ├──
+VerificationStatus.tsx │ │ │ │ ├── KYCTimeline.tsx │ │ │ │ └──
+AadharVerification.tsx │ │ │ ├── pages/ │ │ │ │ ├── KYCPage.tsx │ │ │ │
+├── DocumentUploadPage.tsx │ │ │ │ └── KYCStatusPage.tsx │ │ │ ├──
+hooks/ │ │ │ │ ├── useKYC.ts │ │ │ │ ├── useDocumentUpload.ts │ │ │ │
+└── useVerification.ts │ │ │ └── store/ │ │ │ └── kyc.store.ts │ │ │ │ │
+├── transactions/ │ │ │ ├── components/ │ │ │ │ ├── TransactionList.tsx
+│ │ │ │ ├── TransactionCard.tsx │ │ │ │ ├── TransactionFilter.tsx │ │ │
+│ ├── TransactionDetails.tsx │ │ │ │ ├── CategoryBreakdown.tsx │ │ │ │
+└── SpendingChart.tsx │ │ │ ├── pages/ │ │ │ │ ├── TransactionsPage.tsx
+│ │ │ │ └── TransactionDetailsPage.tsx │ │ │ ├── hooks/ │ │ │ │ ├──
+useTransactions.ts │ │ │ │ └── useTransactionFilter.ts │ │ │ └── store/
+│ │ │ └── transactions.store.ts │ │ │ │ │ ├── chat/ │ │ │ ├──
+components/ │ │ │ │ ├── ChatWindow.tsx │ │ │ │ ├── ChatMessage.tsx │ │ │
+│ ├── ChatInput.tsx │ │ │ │ ├── AgentSelector.tsx │ │ │ │ ├──
+ChatHeader.tsx │ │ │ │ ├── QuickReplies.tsx │ │ │ │ ├──
+TypingIndicator.tsx │ │ │ │ └── SuggestedActions.tsx │ │ │ ├── pages/ │
+│ │ │ └── ChatPage.tsx │ │ │ ├── hooks/ │ │ │ │ ├── useChat.ts │ │ │ │
+├── useChatHistory.ts │ │ │ │ └── useAgentSelection.ts │ │ │ └── store/
+│ │ │ └── chat.store.ts │ │ │ │ │ ├── notifications/ │ │ │ ├──
+components/ │ │ │ │ ├── NotificationBell.tsx │ │ │ │ ├──
+NotificationList.tsx │ │ │ │ ├── NotificationCard.tsx │ │ │ │ ├──
+NotificationCenter.tsx │ │ │ │ └── NotificationPreferences.tsx │ │ │ ├──
+pages/ │ │ │ │ └── NotificationsPage.tsx │ │ │ ├── hooks/ │ │ │ │ ├──
+useNotifications.ts │ │ │ │ └── useNotificationPreferences.ts │ │ │ └──
+store/ │ │ │ └── notifications.store.ts │ │ │ │ │ ├── voice/ │ │ │ ├──
+components/ │ │ │ │ ├── VoiceCampaignCard.tsx │ │ │ │ ├──
+CallHistory.tsx │ │ │ │ ├── CallScheduler.tsx │ │ │ │ ├──
+VoicePreferences.tsx │ │ │ │ └── CallStatusBadge.tsx │ │ │ ├── pages/ │
+│ │ │ ├── VoiceCampaignsPage.tsx │ │ │ │ └── CallHistoryPage.tsx │ │ │
+├── hooks/ │ │ │ │ ├── useVoiceCampaigns.ts │ │ │ │ └──
+useCallHistory.ts │ │ │ └── store/ │ │ │ └── voice.store.ts │ │ │ │ │
+├── dashboard/ │ │ │ ├── components/ │ │ │ │ ├── CustomerDashboard.tsx │
+│ │ │ ├── DashboardHeader.tsx │ │ │ │ ├── QuickActions.tsx │ │ │ │ ├──
+StatsCards.tsx │ │ │ │ ├── RecentActivity.tsx │ │ │ │ ├──
+PortfolioOverview.tsx │ │ │ │ └── GoalTracker.tsx │ │ │ ├── pages/ │ │ │
+│ └── DashboardPage.tsx │ │ │ ├── hooks/ │ │ │ │ └── useDashboard.ts │ │
+│ └── store/ │ │ │ └── dashboard.store.ts │ │ │ │ │ ├── analytics/ │ │ │
+├── components/ │ │ │ │ ├── AnalyticsDashboard.tsx │ │ │ │ ├──
+MetricsCard.tsx │ │ │ │ ├── ConversionChart.tsx │ │ │ │ ├──
+RevenueChart.tsx │ │ │ │ ├── CustomerSegmentation.tsx │ │ │ │ └──
+PerformanceTable.tsx │ │ │ ├── pages/ │ │ │ │ └── AnalyticsPage.tsx │ │
+│ ├── hooks/ │ │ │ │ └── useAnalytics.ts │ │ │ └── store/ │ │ │ └──
+analytics.store.ts │ │ │ │ │ ├── admin/ │ │ │ ├── components/ │ │ │ │
+├── AdminDashboard.tsx │ │ │ │ ├── ConfigManager.tsx │ │ │ │ ├──
+CustomerManagement.tsx │ │ │ │ ├── ProductManagement.tsx │ │ │ │ ├──
+CampaignManager.tsx │ │ │ │ └── SystemMonitor.tsx │ │ │ ├── pages/ │ │ │
+│ ├── AdminPage.tsx │ │ │ │ ├── ConfigPage.tsx │ │ │ │ └──
+MonitoringPage.tsx │ │ │ ├── hooks/ │ │ │ │ ├── useAdmin.ts │ │ │ │ └──
+useConfigReload.ts │ │ │ └── store/ │ │ │ └── admin.store.ts │ │ │ │ │
+└── settings/ │ │ ├── components/ │ │ │ ├── SettingsMenu.tsx │ │ │ ├──
+ProfileSettings.tsx │ │ │ ├── SecuritySettings.tsx │ │ │ ├──
+NotificationSettings.tsx │ │ │ ├── LanguageSettings.tsx │ │ │ └──
+ThemeSettings.tsx │ │ ├── pages/ │ │ │ └── SettingsPage.tsx │ │ ├──
+hooks/ │ │ │ └── useSettings.ts │ │ └── store/ │ │ └── settings.store.ts
+│ │ │ ├── shared/ │ │ │ │ │ ├── components/ │ │ │ ├── ui/ │ │ │ │ ├──
+Button/ │ │ │ │ │ ├── Button.tsx │ │ │ │ │ ├── Button.styles.ts │ │ │ │
+│ └── Button.test.tsx │ │ │ │ ├── Input/ │ │ │ │ ├── Select/ │ │ │ │ ├──
+Checkbox/ │ │ │ │ ├── Radio/ │ │ │ │ ├── Switch/ │ │ │ │ ├── Textarea/ │
+│ │ │ ├── Modal/ │ │ │ │ ├── Dialog/ │ │ │ │ ├── Dropdown/ │ │ │ │ ├──
+Tabs/ │ │ │ │ ├── Accordion/ │ │ │ │ ├── Card/ │ │ │ │ ├── Badge/ │ │ │
+│ ├── Tag/ │ │ │ │ ├── Avatar/ │ │ │ │ ├── Tooltip/ │ │ │ │ ├──
+Progress/ │ │ │ │ ├── Spinner/ │ │ │ │ ├── Skeleton/ │ │ │ │ └── Toast/
+│ │ │ │ │ │ │ ├── layout/ │ │ │ │ ├── Header/ │ │ │ │ ├── Footer/ │ │ │
+│ ├── Sidebar/ │ │ │ │ ├── Container/ │ │ │ │ ├── Grid/ │ │ │ │ └──
+Stack/ │ │ │ │ │ │ │ ├── feedback/ │ │ │ │ ├── LoadingScreen.tsx │ │ │ │
+├── EmptyState.tsx │ │ │ │ ├── ErrorBoundary.tsx │ │ │ │ ├──
+ErrorState.tsx │ │ │ │ └── SuccessState.tsx │ │ │ │ │ │ │ ├──
+navigation/ │ │ │ │ ├── Breadcrumb.tsx │ │ │ │ ├── Pagination.tsx │ │ │
+│ ├── Stepper.tsx │ │ │ │ └── NavMenu.tsx │ │ │ │ │ │ │ └── forms/ │ │ │
+├── FormGroup.tsx │ │ │ ├── FormLabel.tsx │ │ │ ├── FormError.tsx │ │ │
+└── FormHelper.tsx │ │ │ │ │ ├── hooks/ │ │ │ ├── useDebounce.ts │ │ │
+├── useThrottle.ts │ │ │ ├── useLocalStorage.ts │ │ │ ├──
+useSessionStorage.ts │ │ │ ├── useMediaQuery.ts │ │ │ ├──
+useOnClickOutside.ts │ │ │ ├── useKeyPress.ts │ │ │ ├── usePrevious.ts │
+│ │ ├── useToggle.ts │ │ │ └── useAsync.ts │ │ │ │ │ ├── guards/ │ │ │
+├── AuthGuard.tsx │ │ │ ├── RoleGuard.tsx │ │ │ └── KYCGuard.tsx │ │ │ │
+│ └── providers/ │ │ ├── ThemeProvider.tsx │ │ ├── I18nProvider.tsx │ │
+└── ToastProvider.tsx │ │ │ ├── layouts/ │ │ ├── AuthLayout.tsx │ │ ├──
+CustomerLayout.tsx │ │ ├── AdminLayout.tsx │ │ ├── OnboardingLayout.tsx
+│ │ └── BlankLayout.tsx │ │ │ ├── routes/ │ │ ├── index.tsx │ │ ├──
+customer.routes.tsx │ │ ├── admin.routes.tsx │ │ ├── auth.routes.tsx │ │
+└── public.routes.tsx │ │ │ ├── store/ │ │ ├── index.ts │ │ ├──
+rootReducer.ts │ │ └── middleware/ │ │ ├── logger.middleware.ts │ │ └──
+error.middleware.ts │ │ │ ├── styles/ │ │ ├── theme/ │ │ │ ├── colors.ts
+│ │ │ ├── typography.ts │ │ │ ├── spacing.ts │ │ │ ├── breakpoints.ts │
+│ │ ├── shadows.ts │ │ │ └── index.ts │ │ ├── global.css │ │ └──
+tailwind.config.js │ │ │ ├── assets/ │ │ └── (symbolic link to
+public/assets) │ │ │ ├── tests/ │ │ ├── unit/ │ │ ├── integration/ │ │
+└── e2e/ │ │ │ ├── main.tsx │ └── vite-env.d.ts │ ├── .env.development
+├── .env.production ├── .env.test ├── .eslintrc.json ├── .prettierrc ├──
+tsconfig.json ├── vite.config.ts ├── tailwind.config.js ├── package.json
+└── README.md 1.2 MODULE ORGANIZATION PRINCIPLES Feature-Based
+Architecture text
+
+RULE 1: Feature Isolation ━━━━━━━━━━━━━━━━━━━━━━━━━━ Each feature is
+self-contained: - Components - Pages
+- Hooks - Store - Types - Tests
+
+No cross-feature imports except through shared/ Dependency Direction
+text
+
+RULE 2: Dependency Flow ━━━━━━━━━━━━━━━━━━━━━━━━━━ app/ → features/ →
+shared/ → core/
+
+✅ features can import from shared, core ✅ shared can import from core
+❌ core CANNOT import from features ❌ features CANNOT import from other
+features Shared Module Usage text
+
+RULE 3: Shared Components ━━━━━━━━━━━━━━━━━━━━━━━━━━
+shared/components/ui/ → Generic UI components shared/components/layout/
+→ Layout components shared/hooks/ → Reusable hooks shared/guards/ →
+Route protection 1.3 FILE NAMING CONVENTIONS text
+
+CONVENTION TABLE
+════════════════════════════════════════════════════════════
+
+File Type | Naming Pattern | Example
+──────────────────────┼─────────────────────────┼────────────────────────
+React Component | PascalCase.tsx | CustomerProfile.tsx Page Component |
+PascalCase + Page.tsx | DashboardPage.tsx Hook | camelCase + .ts |
+useCustomer.ts API Service | camelCase + .api.ts | customer.api.ts Store
+| camelCase + .store.ts | customer.store.ts Type Definitions |
+camelCase + .types.ts | customer.types.ts Constants | camelCase +
+.constants.ts| customer-types.constants.ts Utils | camelCase + .utils.ts
+| date.utils.ts Test Files | .test.tsx / .spec.tsx | Button.test.tsx
+Style Files | *.styles.ts | Button.styles.ts Config Files | camelCase +
+.config.ts | app.config.ts 1.4 CODE ORGANIZATION PRINCIPLES Component
+Structure TypeScript
+
+// Standard Component File Structure //
+═══════════════════════════════════════════════════════════
+
+// 1. Imports (grouped) import { FC } from ‘react’; // React imports
+import { useCustomer } from ‘@/features/…’; // Feature hooks import {
+Button, Card } from ‘@/shared/…’; // Shared components import { Customer
+} from ‘@/core/types’; // Types import ‘./Component.styles.ts’; //
+Styles
+
+// 2. Type Definitions interface ComponentProps { customer: Customer;
+onSave: (data: Customer) => void; }
+
+// 3. Component Definition export const ComponentName: FC = ({ customer,
+onSave }) => { // 4. Hooks (in order) // - State hooks // - Custom hooks
+// - Effect hooks
+
+// 5. Event Handlers
+
+// 6. Helper Functions
+
+// 7. Render Logic
+
+// 8. Return JSX return (
+      {/* Component UI */}
+    </div>
+
+); };
+
+// 9. Display Name (for debugging) ComponentName.displayName =
+‘ComponentName’; Hook Structure TypeScript
+
+// Standard Hook File Structure //
+═══════════════════════════════════════════════════════════
+
+// 1. Imports import { useState, useEffect } from ‘react’; import { api
+} from ‘@/core/api’;
+
+// 2. Type Definitions interface UseCustomerReturn { customer: Customer
+| null; loading: boolean; error: Error | null; refetch: () => Promise; }
+
+// 3. Hook Definition export const useCustomer = (customerId: string):
+UseCustomerReturn => { // Hook logic
+
+return { customer, loading, error, refetch }; }; ⏸️ CHECKPOINT - SECTION
+1 COMPLETE SECTION 1: PROJECT STRUCTURE is now complete.
+
+This section defines: ✅ Complete folder structure (200+ files/folders)
+✅ Module organization principles ✅ File naming conventions ✅ Code
+organization standards
+
+COMPLIANCE CHECK:
+
+✅ No backend modification ✅ No database changes ✅ No business logic
+changes ✅ Only frontend architecture added ✅ Maps to existing backend
+APIs (to be detailed in later sections) NEXT SECTIONS:
+
+Section 2: Routing & Navigation Section 3: Layout Architecture Section
+4: Authentication Flow Section 5: Customer Journey Screens …and 33 more
+sections 🛑 WAITING FOR YOUR APPROVAL TO CONTINUE TO SECTION 2
+
+Please review Section 1 and confirm to proceed with Section 2: Routing &
+Navigation Architecture.

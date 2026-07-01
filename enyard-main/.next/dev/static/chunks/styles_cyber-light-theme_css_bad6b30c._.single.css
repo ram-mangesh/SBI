@@ -1,0 +1,137 @@
+/* [project]/styles/cyber-light-theme.css [app-client] (css) */
+.section-light {
+  --bg: #f7f8fc;
+  --bg-dark: #eef0f8;
+  --bg-light: #e4e7f2;
+  --bg-panel: #fff;
+  --fg: #1a1b26;
+  --fg-muted: #3d4270;
+  --comment: #7b82a8;
+  --border: #cdd1e8;
+  --blue: #4b7cf7;
+  --cyan: #0ea5e9;
+  --green: #22c55e;
+  --yellow: #d97706;
+  --red: #ef4444;
+  --purple: #8b5cf6;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.section-light .ab-team-card, .section-light .ab-tl-card, .section-light .ab-hero-terminal, .section-light .ab-terminal-bar, .section-light .cl-card, .section-light .cl-card-wide, .section-light .cl-sidebar, .section-light .faq-item, .section-light .faq-anim {
+  background: var(--bg-panel);
+  border-color: var(--border);
+}
+
+.section-light .ab-terminal-body, .section-light .ab-hero-terminal .ab-terminal-body {
+  background: #f0f4ff;
+}
+
+.section-light .ab-domain-hex {
+  background: var(--bg-panel);
+  border-color: var(--border);
+}
+
+.section-light .ab-press {
+  background: var(--bg-dark);
+  border-color: var(--border);
+}
+
+.section-light .ab-press-item {
+  border-color: var(--border);
+}
+
+.section-light .ab-cta {
+  background: var(--bg-dark);
+}
+
+.section-light .ab-hero-stat, .section-light .hero-stat {
+  background: var(--bg-panel);
+  border-color: var(--border);
+}
+
+.section-light .cl-filter-btn {
+  background: var(--bg-panel);
+  border-color: var(--border);
+  color: var(--fg-muted);
+}
+
+.section-light .cl-filter-btn.active {
+  color: var(--blue);
+  background: #4b7cf714;
+  border-color: #4b7cf780;
+}
+
+.section-light .cl-sidebar-item {
+  color: var(--fg-muted);
+}
+
+.section-light .cl-sidebar-item.active, .section-light .cl-sidebar-item:hover {
+  color: var(--blue);
+  background: #4b7cf714;
+}
+
+.section-light select {
+  background: var(--bg-panel);
+  color: var(--fg);
+  border-color: var(--border);
+}
+
+.section-light .faq-item {
+  border-color: var(--border);
+}
+
+.section-light .faq-question {
+  color: var(--fg);
+}
+
+.section-light .faq-q-index {
+  color: var(--comment);
+}
+
+.section-light .faq-answer-text {
+  color: var(--fg-muted);
+}
+
+.section-light .faq-cta {
+  background: var(--bg-panel);
+  border-color: var(--border);
+}
+
+.section-light.cf {
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  box-shadow: inset 0 20px 40px -20px #4b7cf70d;
+}
+
+.section-light .cf-inner, .section-light .cf-bottom, .section-light .cf-status-row {
+  color: var(--fg);
+}
+
+.section-light .cf-brand-desc, .section-light .cf-col-links li a, .section-light .cf-bottom-left, .section-light .cf-bottom-right a {
+  color: var(--fg-muted);
+}
+
+.section-light .cf-newsletter-row, .section-light .cf-social-btn, .section-light .cf-status-item, .section-light .cf-stream, .section-light .cf-version-chip {
+  -webkit-backdrop-filter: blur(12px);
+  background: #fff9;
+  border: 1px solid #cdd1e8cc;
+  box-shadow: 0 4px 12px #00000005;
+}
+
+.section-light .cf-newsletter-input {
+  color: var(--fg);
+  background: none;
+}
+
+.section-light .cf-newsletter-btn {
+  background: var(--blue);
+  color: #fff;
+}
+
+.section-light .cf-canvas-wrap {
+  background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg) 100%);
+  border-bottom: 1px solid var(--border);
+}
+
+/*# sourceMappingURL=styles_cyber-light-theme_css_bad6b30c._.single.css.map*/

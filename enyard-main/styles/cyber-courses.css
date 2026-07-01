@@ -1,0 +1,801 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+/* ── TOKYO NIGHT PALETTE ─────────────────────────────────── */
+:root {
+  --bg: #1a1b26;
+  --bg-dark: #16161e;
+  --bg-light: #24283b;
+  --bg-panel: #1f2335;
+  --fg: #c0caf5;
+  --fg-muted: #a9b1d6;
+  --comment: #565f89;
+  --blue: #7aa2f7;
+  --cyan: #7dcfff;
+  --green: #9ece6a;
+  --yellow: #e0af68;
+  --red: #f7768e;
+  --purple: #bb9af7;
+  --border: #414868;
+}
+
+/* ── SECTION WRAPPER ─────────────────────────────────────── */
+.cl {
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--bg-dark);
+  padding: 80px 0 72px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Removed static dot grid as it is now handled by Canvas */
+
+.cl-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 48px;
+}
+
+/* ── HEADER ──────────────────────────────────────────────── */
+.cl-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 36px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+/* removed empty ruleset */
+
+.cl-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--comment);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cl-label::before {
+  content: '';
+  width: 20px;
+  height: 1px;
+  background: var(--border);
+}
+
+.cl-label span { color: var(--yellow); }
+
+.cl-title {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(24px, 3.2vw, 38px);
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.2;
+}
+
+.cl-title em {
+  font-style: normal;
+  color: var(--blue);
+}
+
+.cl-sub {
+  font-family: 'Crimson Text', serif;
+  font-size: 16px;
+  color: var(--fg-muted);
+  margin-top: 8px;
+  line-height: 1.6;
+}
+
+.cl-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.cl-live-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 14px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--comment);
+}
+
+.cl-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: clPulse 1.6s ease infinite;
+}
+
+.cl-live-strip strong { color: var(--green); }
+
+.cl-view-all {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--blue);
+  background: transparent;
+  border: 1px solid rgba(122, 162, 247, 0.35);
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cl-view-all:hover {
+  background: rgba(122, 162, 247, 0.08);
+  border-color: var(--blue);
+}
+
+/* ── FILTER BAR ──────────────────────────────────────────── */
+.cl-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.cl-filter-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--comment);
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 5px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cl-filter-btn:hover {
+  color: var(--fg-muted);
+  border-color: var(--comment);
+}
+
+.cl-filter-btn.active {
+  color: var(--blue);
+  border-color: rgba(122, 162, 247, 0.5);
+  background: rgba(122, 162, 247, 0.08);
+}
+
+.cl-filter-count {
+  font-size: 8px;
+  background: var(--bg-light);
+  border-radius: 2px;
+  padding: 1px 5px;
+  color: var(--comment);
+}
+
+.cl-filter-btn.active .cl-filter-count {
+  background: rgba(122, 162, 247, 0.15);
+  color: var(--blue);
+}
+
+.cl-filter-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.cl-sort {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  color: var(--comment);
+  letter-spacing: 0.08em;
+}
+
+.cl-sort select {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--fg-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+  outline: none;
+  letter-spacing: 0.06em;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.cl-sort select:focus {
+  border-color: var(--blue);
+}
+
+/* ── MAIN LAYOUT ─────────────────────────────────────────── */
+.cl-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.cl-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 24px;
+}
+
+.cl-sidebar-title {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--comment);
+  padding: 0 10px;
+  margin-bottom: 8px;
+}
+
+.cl-sidebar-item {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.cl-sidebar-item:hover {
+  background: var(--bg-panel);
+  border-color: var(--border);
+  color: var(--fg);
+}
+
+.cl-sidebar-item.active {
+  background: var(--bg-panel);
+  border-color: rgba(122, 162, 247, 0.4);
+  color: var(--blue);
+}
+
+.cl-sidebar-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cl-sidebar-icon {
+  font-size: 11px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.cl-sidebar-num {
+  font-size: 8px;
+  color: var(--comment);
+  background: var(--bg-light);
+  padding: 1px 6px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.cl-sidebar-item.active .cl-sidebar-num {
+  color: var(--blue);
+  background: rgba(122, 162, 247, 0.12);
+}
+
+.cl-sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 4px;
+}
+
+/* ── COURSE GRID ─────────────────────────────────────────── */
+.cl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* ── COURSE CARD ─────────────────────────────────────────── */
+.cl-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  animation: clSlideUp 0.4s ease both;
+  display: flex;
+  flex-direction: column;
+}
+
+.cl-card:hover {
+  border-color: rgba(122, 162, 247, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+.cl-card.live {
+  border-color: rgba(158, 206, 106, 0.35);
+}
+
+.cl-card.live:hover {
+  border-color: rgba(158, 206, 106, 0.6);
+}
+
+/* thumbnail strip */
+.cl-card-thumb {
+  height: 6px;
+  background: var(--bg-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.cl-card-thumb-fill {
+  position: absolute;
+  inset: 0;
+  opacity: 0.7;
+}
+
+/* card header */
+.cl-card-head {
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cl-card-type {
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--comment);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cl-card-type-icon { font-size: 10px; }
+
+.cl-card-badges {
+  display: flex;
+  gap: 5px;
+}
+
+.cl-chip {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.cl-chip-blue   { color: var(--blue);   background: rgba(122,162,247,0.1); border-color: rgba(122,162,247,0.3); }
+.cl-chip-green  { color: var(--green);  background: rgba(158,206,106,0.1); border-color: rgba(158,206,106,0.3); }
+.cl-chip-yellow { color: var(--yellow); background: rgba(224,175,104,0.1); border-color: rgba(224,175,104,0.3); }
+.cl-chip-red    { color: var(--red);    background: rgba(247,118,142,0.1); border-color: rgba(247,118,142,0.3); }
+.cl-chip-purple { color: var(--purple); background: rgba(187,154,247,0.1); border-color: rgba(187,154,247,0.3); }
+.cl-chip-cyan   { color: var(--cyan);   background: rgba(125,207,255,0.1); border-color: rgba(125,207,255,0.3); }
+
+/* card body */
+.cl-card-body {
+  padding: 16px 16px 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cl-card-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.35;
+}
+
+.cl-card-desc {
+  font-family: 'Crimson Text', serif;
+  font-size: 13.5px;
+  color: var(--fg-muted);
+  line-height: 1.6;
+  flex: 1;
+}
+
+.cl-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cl-card-meta-item {
+  font-size: 9px;
+  color: var(--comment);
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cl-card-meta-item span { color: var(--fg-muted); }
+
+/* progress bar */
+.cl-card-progress {
+  height: 2px;
+  background: var(--bg-light);
+  border-radius: 1px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.cl-card-progress-fill {
+  height: 100%;
+  border-radius: 1px;
+  background: var(--blue);
+  transition: width 0.4s ease;
+}
+
+/* card footer */
+.cl-card-foot {
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cl-card-instructor {
+  font-size: 9px;
+  color: var(--comment);
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cl-instructor-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-weight: 600;
+  border: 1.5px solid;
+  flex-shrink: 0;
+}
+
+.cl-card-action {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  padding: 5px 12px;
+  border-radius: 3px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+}
+
+.cl-card-action-blue {
+  color: var(--blue);
+  border-color: rgba(122, 162, 247, 0.4);
+}
+.cl-card-action-blue:hover {
+  background: rgba(122, 162, 247, 0.1);
+  border-color: var(--blue);
+}
+
+.cl-card-action-green {
+  color: var(--green);
+  border-color: rgba(158, 206, 106, 0.4);
+  animation: clGreenPulse 2s ease infinite;
+}
+.cl-card-action-green:hover {
+  background: rgba(158, 206, 106, 0.1);
+  border-color: var(--green);
+}
+
+/* live indicator on card */
+.cl-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8px;
+  color: var(--green);
+  letter-spacing: 0.1em;
+}
+
+.cl-live-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: clPulse 1.4s ease infinite;
+}
+
+/* ── FEATURED WIDE CARD ──────────────────────────────────── */
+.cl-card-wide {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg-panel);
+  border: 1px solid rgba(122, 162, 247, 0.4);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.1);
+  animation: clSlideUp 0.35s ease both;
+}
+
+.cl-card-wide:hover {
+  border-color: var(--blue);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.cl-wide-left {
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-right: 1px solid var(--border);
+}
+
+.cl-wide-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cl-wide-title {
+  font-family: 'Cinzel', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.25;
+}
+
+.cl-wide-title em {
+  font-style: normal;
+  color: var(--blue);
+}
+
+.cl-wide-desc {
+  font-family: 'Crimson Text', serif;
+  font-size: 15px;
+  color: var(--fg-muted);
+  line-height: 1.7;
+  flex: 1;
+}
+
+.cl-wide-meta {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cl-wide-meta-item {
+  font-size: 9px;
+  color: var(--comment);
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cl-wide-meta-item strong { color: var(--fg-muted); }
+
+.cl-wide-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.cl-wide-btn-primary {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 9px 22px;
+  border-radius: 4px;
+  background: var(--blue);
+  color: var(--bg-dark);
+  border: 1px solid var(--blue);
+  cursor: pointer;
+  transition: background 0.18s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cl-wide-btn-primary:hover { background: #5d7fe8; }
+
+.cl-wide-btn-ghost {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 9px 22px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.cl-wide-btn-ghost:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+}
+
+.cl-wide-right {
+  background: var(--bg-light);
+  padding: 24px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cl-wide-right-title {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--comment);
+  margin-bottom: 4px;
+}
+
+.cl-module {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  transition: border-color 0.15s;
+}
+
+.cl-module:hover { border-color: rgba(122, 162, 247, 0.4); }
+
+.cl-module-num {
+  font-size: 9px;
+  color: var(--blue);
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.cl-module-name {
+  font-size: 10.5px;
+  color: var(--fg-muted);
+  flex: 1;
+}
+
+.cl-module-dur {
+  font-size: 8.5px;
+  color: var(--comment);
+}
+
+.cl-module-status {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── PAGINATION / LOAD MORE ──────────────────────────────── */
+.cl-footer {
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.cl-count-info {
+  font-size: 9px;
+  color: var(--comment);
+  letter-spacing: 0.06em;
+}
+
+.cl-count-info strong { color: var(--fg-muted); }
+
+.cl-load-more {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 9px 28px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.cl-load-more:hover {
+  color: var(--fg);
+  border-color: var(--comment);
+  background: rgba(169, 177, 214, 0.05);
+}
+
+/* ── KEYFRAMES ───────────────────────────────────────────── */
+@keyframes clSlideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes clPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.35); }
+}
+
+@keyframes clGreenPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(158, 206, 106, 0); }
+  50%       { box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.15); }
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .cl-layout { grid-template-columns: 1fr; }
+  .cl-sidebar { flex-direction: row; flex-wrap: wrap; position: static; }
+  .cl-sidebar-title { display: none; }
+  .cl-sidebar-divider { display: none; }
+  .cl-sidebar-item { width: auto; }
+  .cl-card-wide { grid-template-columns: 1fr; }
+  .cl-wide-left  { border-right: none; border-bottom: 1px solid var(--border); }
+}
+
+@media (max-width: 768px) {
+  .cl-inner  { padding: 0 24px; }
+  .cl-header { flex-direction: column; align-items: flex-start; }
+  .cl-header-right { align-items: flex-start; }
+  .cl-grid   { grid-template-columns: 1fr; }
+  .cl-card-wide { display: flex; flex-direction: column; }
+  .cl-footer { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 480px) {
+  .cl-inner  { padding: 0 16px; }
+  .cl-filters { gap: 4px; }
+}

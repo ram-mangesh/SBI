@@ -1,0 +1,2043 @@
+SECTION 6: DASHBOARD ARCHITECTURE
+
+📋 SECTION METADATA
+Section:       6 - Dashboard Architecture
+Version:       1.0.0
+Status:        DRAFT - PENDING APPROVAL
+Dependencies:  Sections 1–5 (All Approved)
+Extends:       Existing BankMate AI Backend Architecture
+Modifications: NONE to existing backend/business logic
+
+6.1 DASHBOARD ARCHITECTURE OVERVIEW
+Purpose
+The BankMate AI Dashboard is the primary post-authentication interface for all user roles. It serves as the unified command center that:
+PRIMARY OBJECTIVES
+════════════════════════════════════════════════════════════════
+
+✅ Surface AI-generated hyper-personalized product recommendations
+✅ Display life-event-driven financial insights
+✅ Drive product conversion through contextual CTAs
+✅ Track customer financial goals and progress
+✅ Communicate via all channels (push, SMS, email, WhatsApp, voice)
+✅ Present onboarding completion nudges
+✅ Show real-time application status
+✅ Enable digital banking adoption through guided quick actions
+
+Dashboard Principles
+DESIGN PRINCIPLES
+════════════════════════════════════════════════════════════════
+
+PRINCIPLE 1: AI-First Surface
+──────────────────────────────
+Every widget is AI-aware.
+Recommendations, insights, and nudges are dynamically injected
+from existing AI agents via backend APIs.
+No static content on the dashboard.
+
+PRINCIPLE 2: Life-Event Driven
+────────────────────────────────
+Dashboard layout and widget priority shift based on detected
+life events. A customer with a detected "Home Purchase" event
+sees home loan widgets promoted. A "New Baby" event promotes
+child plan insurance.
+
+PRINCIPLE 3: Customer Type Aware
+──────────────────────────────────
+Widget configuration differs per customer type:
+- Salaried: EMI eligibility, salary account upsell
+- Self-Employed: Business loan, overdraft
+- Student: Education loan, credit card starter
+- Senior: FD rates, health insurance, pension
+- NRI: Remittance, NRE/NRO account
+
+PRINCIPLE 4: Conversion Optimized
+────────────────────────────────────
+Every recommendation card has exactly ONE primary CTA.
+CTAs map to existing application journey routes.
+No dead ends. Every widget leads forward.
+
+PRINCIPLE 5: Progressive Disclosure
+──────────────────────────────────────
+Dashboard surfaces summary-level data.
+Drill-down navigates to dedicated feature pages.
+This preserves performance and reduces cognitive load.
+
+PRINCIPLE 6: Offline Resilient
+────────────────────────────────
+Critical widgets use Redis-cached data.
+Stale-while-revalidate pattern for all dashboard API calls.
+Offline indicator shown when connectivity is lost.
+
+Navigation Integration
+DASHBOARD NAVIGATION MAPPING
+════════════════════════════════════════════════════════════════
+
+Entry Point:
+  Route: /customer/dashboard
+  Layout: CustomerLayout (Section 3)
+  Guard: AuthGuard + ProfileCompleteGuard (Section 2)
+
+Exit Points (from Dashboard):
+  ├── /customer/life-events         → Life Events Detail Page
+  ├── /customer/recommendations     → Recommendations Page
+  ├── /customer/recommendations/:id → Recommendation Detail
+  ├── /customer/products            → Product Catalog
+  ├── /customer/products/:id        → Product Detail
+  ├── /customer/applications        → Applications List
+  ├── /customer/applications/new    → Start Application
+  ├── /customer/kyc                 → KYC Journey
+  ├── /customer/profile             → Profile Page
+  ├── /customer/transactions        → Transaction History
+  ├── /customer/chat                → AI Chat
+  └── /customer/notifications       → Notification Center
+
+Role-Based Access
+ROLE-BASED DASHBOARD ACCESS
+════════════════════════════════════════════════════════════════
+
+CUSTOMER ROLE
+─────────────
+Route:        /customer/dashboard
+Layout:       CustomerLayout
+Widgets:      All customer-facing widgets
+API Access:   Customer-scoped endpoints only
+Data Scope:   Own profile, life events, recommendations, products
+
+ADMIN ROLE
+──────────
+Route:        /admin/dashboard
+Layout:       AdminLayout
+Widgets:      System metrics, customer management, product config
+API Access:   Admin endpoints
+Data Scope:   All customers (read), system configuration
+
+RELATIONSHIP MANAGER (RM) ROLE
+───────────────────────────────
+Route:        /rm/dashboard
+Layout:       RMLayout
+Widgets:      Assigned customers, leads, tasks, performance
+API Access:   RM-scoped endpoints
+Data Scope:   Assigned customer portfolio only
+
+NOTE: Section 6 specifies CUSTOMER DASHBOARD in full detail.
+Admin and RM dashboards are referenced at a structural level only,
+as they are out of scope for PS3 (Customer Acquisition focus).
+
+API Integration Overview
+DASHBOARD API MAPPING
+════════════════════════════════════════════════════════════════
+
+Widget                    | Primary API                              | Cache
+──────────────────────────┼──────────────────────────────────────────┼────────────
+Welcome Area              | GET /customers/{id}                      | Redis 5m
+Financial Snapshot        | GET /customers/{id}/financial            | Redis 15m
+Life Events Banner        | GET /life-events/{customerId}            | Redis 10m
+AI Recommendations        | GET /recommendations/{customerId}        | Redis 10m
+Goal Tracker              | GET /customers/{id}/goals                | Redis 10m
+Recent Activity           | GET /transactions/{customerId}?limit=5   | Redis 5m
+Quick Actions             | GET /customers/{id}                      | Redis 5m
+Notifications             | GET /notifications/{customerId}          | Redis 2m
+Application Status        | GET /applications/{customerId}           | Redis 5m
+Financial Health Score    | GET /customers/{id}/financial            | Redis 15m
+Product Portfolio         | GET /products/customer/{id}              | Redis 10m
+
+All cache durations use existing Redis strategy from approved TechSpec.
+
+AI Integration Overview
+AI AGENT MAPPING
+════════════════════════════════════════════════════════════════
+
+Dashboard Section          | AI Agent                  | Trigger
+───────────────────────────┼───────────────────────────┼──────────────────────────
+Recommendation Cards       | RecommendationEngine      | On dashboard load
+Life Event Banner          | LifeEventDetector         | Background (Kafka event)
+Financial Health Insights  | FinancialAnalysisAgent    | On financial data load
+Goal Suggestions           | GoalDiscoveryAgent        | On goals widget load
+Onboarding Nudge           | OnboardingAgent           | If profile < 100%
+Communication Nudges       | CommunicationAgent        | Kafka: CUSTOMER_ENGAGED
+Next Best Action           | NextBestActionAgent       | On each dashboard refresh
+Chat Suggestions           | ConversationalAgent       | Floating chat widget
+
+All AI agents are pre-existing from the approved backend architecture.
+No new agents are introduced.
+
+6.2 CUSTOMER DASHBOARD
+Dashboard Layout Grid
+CUSTOMER DASHBOARD LAYOUT
+════════════════════════════════════════════════════════════════
+
+Desktop Layout (1280px+):
+┌──────────────────────────────────────────────────────────────────┐
+│  HEADER (CustomerLayout Header — Section 3)                      │
+├──────────────────────────────────────────────────────────────────┤
+│  SIDEBAR  │  MAIN CONTENT AREA                                   │
+│  (240px)  │                                                       │
+│           │  ┌─────────────────────────────────────────────────┐ │
+│  Nav      │  │  6.2.1  WELCOME AREA                            │ │
+│  Items    │  └─────────────────────────────────────────────────┘ │
+│  (Sec 3)  │                                                       │
+│           │  ┌───────────────────┐  ┌──────────────────────────┐ │
+│           │  │  6.2.2 FINANCIAL  │  │  6.2.3 LIFE EVENTS       │ │
+│           │  │  SNAPSHOT         │  │  BANNER                   │ │
+│           │  └───────────────────┘  └──────────────────────────┘ │
+│           │                                                       │
+│           │  ┌─────────────────────────────────────────────────┐ │
+│           │  │  6.2.4  AI RECOMMENDATION CENTER                │ │
+│           │  │  (Primary Conversion Widget)                    │ │
+│           │  └─────────────────────────────────────────────────┘ │
+│           │                                                       │
+│           │  ┌───────────────────┐  ┌──────────────────────────┐ │
+│           │  │  6.2.5 GOAL       │  │  6.2.6 RECENT ACTIVITY   │ │
+│           │  │  TRACKER          │  │                           │ │
+│           │  └───────────────────┘  └──────────────────────────┘ │
+│           │                                                       │
+│           │  ┌─────────────────────────────────────────────────┐ │
+│           │  │  6.2.7  QUICK ACTIONS                           │ │
+│           │  └─────────────────────────────────────────────────┘ │
+│           │                                                       │
+│           │  ┌───────────────────┐  ┌──────────────────────────┐ │
+│           │  │  6.2.8            │  │  6.2.9 COMMUNICATION     │ │
+│           │  │  NOTIFICATIONS    │  │  CENTER                   │ │
+│           │  └───────────────────┘  └──────────────────────────┘ │
+│           │                                                       │
+│           │  ┌─────────────────────────────────────────────────┐ │
+│           │  │  6.2.10  PROFILE SUMMARY                        │ │
+│           │  └─────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
+
+6.2.1 Welcome Area
+WELCOME AREA SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      WelcomeWidget
+Position:       Top of main content, full width
+Priority:       P0 (Always visible)
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /customers/{id}
+Cache:          Redis key: customer:{id}:profile (TTL: 5m)
+Store:          customer.store.ts → customerProfile
+
+Fields Used:
+  ├── firstName               → Greeting text
+  ├── customerType            → Type badge
+  ├── profileCompletionPct    → Progress bar (if < 100%)
+  ├── kycStatus               → KYC nudge (if PENDING)
+  ├── lastLoginAt             → "Last seen" info
+  └── preferredLanguage       → i18n locale
+
+────────────────────────────────────────────────────────────────
+DISPLAY LOGIC
+────────────────────────────────────────────────────────────────
+
+Greeting Logic:
+  IF currentHour >= 5 AND < 12  → "Good Morning, {firstName}!"
+  IF currentHour >= 12 AND < 17 → "Good Afternoon, {firstName}!"
+  IF currentHour >= 17 AND < 21 → "Good Evening, {firstName}!"
+  ELSE                           → "Welcome back, {firstName}!"
+
+Customer Type Badge:
+  ├── SALARIED      → Badge: "Salaried Professional"  Color: Blue
+  ├── SELF_EMPLOYED → Badge: "Business Owner"         Color: Orange
+  ├── STUDENT       → Badge: "Student"                Color: Green
+  ├── SENIOR        → Badge: "Senior Citizen"         Color: Purple
+  └── NRI           → Badge: "NRI Customer"           Color: Teal
+
+Profile Completion Nudge:
+  Condition: profileCompletionPct < 100
+  Shows:
+    ├── Progress bar (e.g., "70% Complete")
+    ├── Text: "Complete your profile to unlock personalised offers"
+    └── CTA: "Complete Profile" → /customer/onboarding/:nextStep
+
+KYC Nudge:
+  Condition: kycStatus = PENDING or NOT_SUBMITTED
+  Shows:
+    ├── Warning banner
+    ├── Text: "Complete KYC to apply for products"
+    └── CTA: "Start KYC" → /customer/kyc
+
+────────────────────────────────────────────────────────────────
+AI INTEGRATION
+────────────────────────────────────────────────────────────────
+
+Agent:   NextBestActionAgent
+Trigger: On dashboard load
+Output:  Dynamic welcome message injected below greeting
+Example: "You have 3 new personalised product recommendations
+          based on your recent activity."
+
+────────────────────────────────────────────────────────────────
+KAFKA EVENTS CONSUMED
+────────────────────────────────────────────────────────────────
+
+Event:  CUSTOMER_PROFILE_UPDATED
+Action: Refresh customerProfile from Redis/API
+Event:  KYC_STATUS_UPDATED
+Action: Re-evaluate KYC nudge visibility
+
+6.2.2 Financial Snapshot Widget
+FINANCIAL SNAPSHOT SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      FinancialSnapshotWidget
+Position:       Row 2, Left column (60% width on desktop)
+Priority:       P0
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /customers/{id}/financial
+Cache:          Redis key: customer:{id}:financial (TTL: 15m)
+Store:          customer.store.ts → financialProfile
+
+Fields Used:
+  ├── monthlyIncome           → Income display
+  ├── monthlyExpenses         → Expense display
+  ├── existingEMI             → EMI load display
+  ├── availableIncome         → Computed: Income - Expenses - EMI
+  ├── creditScore             → Credit health indicator
+  └── totalAssets             → Net worth summary
+
+────────────────────────────────────────────────────────────────
+DISPLAY COMPONENTS
+────────────────────────────────────────────────────────────────
+
+Income Summary Card:
+  ├── Label: "Monthly Income"
+  ├── Value: ₹{monthlyIncome} (formatted via currency.utils.ts)
+  └── Trend: Compared to last month (if available)
+
+Expense Summary Card:
+  ├── Label: "Monthly Expenses"
+  ├── Value: ₹{monthlyExpenses}
+  └── Visual: Horizontal bar (expenses/income ratio)
+
+Available Income Card:
+  ├── Label: "Available Balance"
+  ├── Value: ₹{availableIncome}
+  └── Context: "After EMIs and expenses"
+
+Credit Health Indicator:
+  ├── Condition: creditScore is set
+  ├── Score range:
+  │     300–549 → Poor    (Red)
+  │     550–649 → Fair    (Orange)
+  │     650–749 → Good    (Yellow)
+  │     750–849 → Great   (Light Green)
+  │     850–900 → Excellent (Green)
+  └── CTA: "Improve Score" → /customer/profile/financial
+
+EMI Load Meter:
+  ├── Formula: (existingEMI / monthlyIncome) × 100
+  ├── 0–30%   → Healthy (Green)
+  ├── 31–50%  → Moderate (Yellow)
+  └── 51%+    → High (Red)
+
+────────────────────────────────────────────────────────────────
+NAVIGATION
+────────────────────────────────────────────────────────────────
+
+"View Details" CTA → /customer/profile/financial
+"Full Report" CTA  → /customer/transactions
+
+6.2.3 Life Events Banner
+LIFE EVENTS BANNER SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      LifeEventBannerWidget
+Position:       Row 2, Right column (40% width on desktop)
+Priority:       P0 (when life events detected)
+                Hidden if no active life events
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /life-events/{customerId}
+Cache:          Redis key: life-events:{customerId} (TTL: 10m)
+Store:          life-events.store.ts → activeLifeEvents
+
+Filter Logic:
+  ├── Show only events with status: ACTIVE or DETECTED
+  ├── Sort by: confidenceScore DESC
+  └── Limit: Top 3 events maximum
+
+────────────────────────────────────────────────────────────────
+LIFE EVENT CARD (per event)
+────────────────────────────────────────────────────────────────
+
+Structure:
+  ├── Icon: Life event type icon (from /public/icons/life-events/)
+  ├── Event Name: e.g., "Home Purchase Detected"
+  ├── Confidence Score: e.g., "87% Confidence"
+  ├── Stage Badge: e.g., "Consideration Phase"
+  ├── AI Message: "Based on your profile, we think you may be
+  │               planning a home purchase"
+  └── CTA: "See Recommendations" →
+            /customer/recommendations?lifeEvent={eventId}
+
+Life Event Types (from existing schema):
+  ├── HOME_PURCHASE       → 🏠 Home Purchase
+  ├── MARRIAGE            → 💍 Marriage Planning
+  ├── NEW_BABY            → 👶 New Family Member
+  ├── EDUCATION           → 🎓 Education Planning
+  ├── CAREER_CHANGE       → 💼 Career Transition
+  ├── RETIREMENT          → 🌅 Retirement Planning
+  ├── BUSINESS_START      → 🚀 Business Launch
+  └── TRAVEL              → ✈️ Travel Planning
+
+────────────────────────────────────────────────────────────────
+KAFKA EVENT HANDLING
+────────────────────────────────────────────────────────────────
+
+Event:  LIFE_EVENT_DETECTED
+Action: Invalidate Redis cache, refresh widget, show toast
+        notification: "New life event detected!"
+
+Event:  LIFE_EVENT_STAGE_UPDATED
+Action: Update stage badge without full refresh
+
+6.2.4 AI Recommendation Center (Primary Conversion Widget)
+AI RECOMMENDATION CENTER SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      AIRecommendationCenterWidget
+Position:       Row 3, Full width
+Priority:       P0 (Core conversion widget)
+
+This is the PRIMARY product conversion surface on the dashboard.
+All recommendations originate from the existing
+RecommendationEngine AI Agent.
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /recommendations/{customerId}
+Cache:          Redis key: recommendations:{customerId} (TTL: 10m)
+Store:          recommendations.store.ts → activeRecommendations
+
+Response Fields Used:
+  ├── recommendationId        → Unique card key
+  ├── productId               → Link to product detail
+  ├── productName             → Card title
+  ├── productCategory         → Category badge
+  ├── matchScore              → Match percentage display
+  ├── affordabilityStatus     → Affordability indicator
+  ├── eligibilityStatus       → Eligibility indicator
+  ├── confidenceScore         → AI confidence display
+  ├── reasoningFactors[]      → "Why this product" section
+  ├── suggestedActions[]      → Action chips
+  ├── lifeEventId             → If life-event-triggered
+  └── expiresAt               → Urgency indicator
+
+────────────────────────────────────────────────────────────────
+WIDGET LAYOUT
+────────────────────────────────────────────────────────────────
+
+Header Row:
+  ├── Title: "Recommended For You"
+  ├── AI Badge: "Powered by BankMate AI"
+  ├── Filter: [All | Loans | Cards | Insurance | Investments]
+  └── "View All" CTA → /customer/recommendations
+
+Recommendation Cards (Horizontal Scroll on Mobile):
+  Maximum displayed: 4 cards on desktop, 1 card on mobile
+  Layout: Horizontal card row with scroll
+
+────────────────────────────────────────────────────────────────
+RECOMMENDATION CARD STRUCTURE
+────────────────────────────────────────────────────────────────
+
+Each card contains:
+
+  Top Section:
+  ├── Product Category Icon
+  ├── Product Name
+  ├── Category Badge (Loan / Card / Insurance / Investment)
+  └── Life Event Tag (if lifeEventId is set)
+      Example: "Based on your Home Purchase plan"
+
+  Score Section:
+  ├── Match Score:
+  │     Display: "{matchScore}% Match"
+  │     Visual: Circular progress indicator
+  │     Color:
+  │       90-100% → Green
+  │       70-89%  → Blue
+  │       50-69%  → Orange
+  │       < 50%   → Grey (deprioritized)
+  │
+  ├── Affordability:
+  │     AFFORDABLE      → ✅ "Within your budget"
+  │     BORDERLINE      → ⚠️ "Near your budget limit"
+  │     NOT_AFFORDABLE  → ❌ "Outside current budget"
+  │
+  └── Eligibility:
+        ELIGIBLE        → ✅ "You're eligible"
+        LIKELY_ELIGIBLE → 🔵 "Likely eligible"
+        NOT_ELIGIBLE    → ❌ "Currently ineligible"
+
+  Reasoning Section:
+  ├── Title: "Why we recommend this"
+  └── Pills: [{reasoningFactor}] (max 3 visible)
+      Examples:
+        "Matches your savings goal"
+        "Suits your income bracket"
+        "Popular with your peer group"
+        "Linked to your life event"
+
+  Action Section:
+  ├── Primary CTA: "Apply Now" → /customer/applications/new?productId={id}
+  │     Condition: eligibilityStatus = ELIGIBLE
+  │
+  ├── Primary CTA: "Check Eligibility" → /customer/products/{productId}
+  │     Condition: eligibilityStatus = LIKELY_ELIGIBLE
+  │
+  ├── Primary CTA: "View Details" → /customer/products/{productId}
+  │     Condition: NOT_ELIGIBLE
+  │
+  └── Secondary CTA: "Not Interested" → POST /recommendations/{id}/dismiss
+
+────────────────────────────────────────────────────────────────
+AI AGENT INTEGRATION
+────────────────────────────────────────────────────────────────
+
+Agent:          RecommendationEngine
+Trigger:        GET /recommendations/{customerId}
+Inputs:
+  ├── customerType
+  ├── financialProfile
+  ├── activeLifeEvents
+  ├── interactionHistory
+  └── productCatalog
+
+Output:         Ranked recommendation list with scores and reasons
+
+Cache Strategy: Redis stores recommendation response for 10 minutes.
+                On dismissal, local state updated immediately.
+                Redis invalidated via Kafka: RECOMMENDATION_UPDATED
+
+────────────────────────────────────────────────────────────────
+KAFKA EVENTS
+────────────────────────────────────────────────────────────────
+
+Consumed:
+  ├── RECOMMENDATION_UPDATED   → Refresh recommendations widget
+  └── LIFE_EVENT_DETECTED      → Trigger recommendation refresh
+
+Produced (Frontend → Backend via API):
+  ├── POST /recommendations/{id}/view    → On card visible
+  └── POST /recommendations/{id}/dismiss → On "Not Interested"
+
+6.2.5 Goal Tracker Widget
+GOAL TRACKER WIDGET SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      GoalTrackerWidget
+Position:       Row 4, Left column (50% width on desktop)
+Priority:       P1
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /customers/{id}/goals
+Cache:          Redis key: customer:{id}:goals (TTL: 10m)
+Store:          customer.store.ts → financialGoals
+
+Fields Used:
+  ├── goalId
+  ├── goalType        → Icon mapping
+  ├── goalName        → Display title
+  ├── targetAmount    → Target value
+  ├── currentAmount   → Progress value
+  ├── targetDate      → Deadline display
+  ├── progressPct     → Progress bar fill
+  └── aiSuggestion    → AI tip text
+
+────────────────────────────────────────────────────────────────
+GOAL CARD STRUCTURE
+────────────────────────────────────────────────────────────────
+
+Per goal:
+  ├── Icon: Based on goalType
+  │     HOME          → 🏠
+  │     EDUCATION     → 🎓
+  │     RETIREMENT    → 🌅
+  │     EMERGENCY     → 🛡️
+  │     TRAVEL        → ✈️
+  │     WEDDING       → 💍
+  │     VEHICLE       → 🚗
+  │     BUSINESS      → 🚀
+  │
+  ├── Goal Name
+  ├── Progress Bar:
+  │     Fill: progressPct%
+  │     Color:
+  │       0-33%   → Red
+  │       34-66%  → Orange
+  │       67-99%  → Blue
+  │       100%    → Green (Achieved)
+  │
+  ├── Amount: "₹{currentAmount} of ₹{targetAmount}"
+  ├── Deadline: "{X months} remaining"
+  └── AI Tip (if aiSuggestion is set):
+        💡 "{aiSuggestion}"
+        Example: "Invest ₹5,000/month in recurring deposits
+                  to reach your goal on time."
+
+Widget Footer:
+  ├── "Add New Goal" → /customer/profile/goals
+  └── "View All Goals" → /customer/profile/goals
+
+────────────────────────────────────────────────────────────────
+AI INTEGRATION
+────────────────────────────────────────────────────────────────
+
+Agent:   GoalDiscoveryAgent
+Trigger: On widget load if goals < 3
+Output:  Suggested goal types based on customer profile
+Display: "Would you like to set a goal for {suggestedGoal}?"
+CTA:     "Add Goal" → Goal creation flow
+
+6.2.6 Recent Activity Widget
+RECENT ACTIVITY WIDGET SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      RecentActivityWidget
+Position:       Row 4, Right column (50% width on desktop)
+Priority:       P1
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /transactions/{customerId}?limit=5&sort=date:desc
+Cache:          Redis key: transactions:{customerId}:recent (TTL: 5m)
+Store:          transactions.store.ts → recentTransactions
+
+Fields Used:
+  ├── transactionId
+  ├── type             → Debit / Credit
+  ├── amount
+  ├── description
+  ├── category
+  ├── merchant
+  └── transactionDate
+
+────────────────────────────────────────────────────────────────
+DISPLAY
+────────────────────────────────────────────────────────────────
+
+Transaction Row (per item):
+  ├── Category Icon (based on category)
+  ├── Description / Merchant name
+  ├── Date: Relative ("Today", "Yesterday", "2 days ago")
+  └── Amount:
+        Credit → Green + "+₹{amount}"
+        Debit  → Red + "-₹{amount}"
+
+Widget Footer:
+  └── "View All Transactions" → /customer/transactions
+
+6.2.7 Quick Actions Widget
+QUICK ACTIONS WIDGET SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      QuickActionsWidget
+Position:       Row 5, Full width
+Priority:       P0
+
+────────────────────────────────────────────────────────────────
+PURPOSE
+────────────────────────────────────────────────────────────────
+
+Drives digital banking adoption by surfacing the most
+contextually relevant actions for the customer at that moment.
+Actions are dynamically ordered by the NextBestActionAgent.
+
+────────────────────────────────────────────────────────────────
+STATIC QUICK ACTIONS (always present)
+────────────────────────────────────────────────────────────────
+
+Action              | Icon  | Route
+────────────────────┼───────┼────────────────────────────────────
+Explore Products    | 📦    | /customer/products
+My Applications     | 📋    | /customer/applications
+Talk to AI Advisor  | 🤖    | /customer/chat
+KYC Status          | 🪪    | /customer/kyc
+Notifications       | 🔔    | /customer/notifications
+Profile Settings    | 👤    | /customer/profile
+
+────────────────────────────────────────────────────────────────
+DYNAMIC QUICK ACTIONS (AI-injected, contextual)
+────────────────────────────────────────────────────────────────
+
+Condition                    | Action Shown
+─────────────────────────────┼──────────────────────────────────────────
+profileCompletionPct < 100   | "Complete Your Profile"
+kycStatus = PENDING          | "Finish KYC"
+activeApplications > 0       | "Track Your Application"
+lifeEvent detected           | "See {Event} Recommendations"
+recommendation score > 85%   | "Apply for {Product}"
+goals = 0                    | "Set Your First Goal"
+creditScore < 600             | "Improve Credit Score Tips"
+
+AI Agent:  NextBestActionAgent
+API:       Uses existing GET /customers/{id} and
+           GET /recommendations/{customerId} data
+           No new endpoint required.
+
+6.2.8 Notifications Widget
+NOTIFICATIONS WIDGET SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      NotificationSummaryWidget
+Position:       Row 6, Left column (50% width on desktop)
+Priority:       P1
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /notifications/{customerId}?limit=5&unread=true
+Cache:          Redis key: notifications:{customerId} (TTL: 2m)
+Store:          notifications.store.ts → unreadNotifications
+
+Fields Used:
+  ├── notificationId
+  ├── type         → Icon mapping
+  ├── title
+  ├── message
+  ├── isRead
+  ├── priority     → HIGH / MEDIUM / LOW
+  └── createdAt
+
+────────────────────────────────────────────────────────────────
+NOTIFICATION TYPES
+────────────────────────────────────────────────────────────────
+
+Type                    | Icon  | Color
+────────────────────────┼───────┼────────
+RECOMMENDATION_NEW      | 🎯    | Blue
+LIFE_EVENT_DETECTED     | ⚡    | Purple
+APPLICATION_UPDATE      | 📋    | Orange
+KYC_ACTION_REQUIRED     | 🪪    | Red
+GOAL_MILESTONE          | 🏆    | Green
+SYSTEM                  | ℹ️    | Grey
+
+────────────────────────────────────────────────────────────────
+KAFKA EVENTS CONSUMED
+────────────────────────────────────────────────────────────────
+
+Event:  NOTIFICATION_CREATED     → Append to widget (real-time)
+Event:  NOTIFICATION_READ        → Update read status in store
+
+6.2.9 Communication Center Widget
+COMMUNICATION CENTER WIDGET SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      CommunicationCenterWidget
+Position:       Row 6, Right column (50% width on desktop)
+Priority:       P1
+
+────────────────────────────────────────────────────────────────
+PURPOSE
+────────────────────────────────────────────────────────────────
+
+Displays the customer's recent communication history across all
+channels. Driven by the existing CommunicationAgent and
+Kafka-based event pipeline.
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /notifications/{customerId}/history
+                (filtered by channel type)
+Store:          notifications.store.ts → communicationHistory
+
+Channels Displayed:
+  ├── PUSH_NOTIFICATION
+  ├── EMAIL
+  ├── SMS
+  ├── WHATSAPP
+  └── VOICE_CALL
+
+────────────────────────────────────────────────────────────────
+DISPLAY
+────────────────────────────────────────────────────────────────
+
+Timeline Row (per communication):
+  ├── Channel Icon
+  │     Push    → 📲
+  │     Email   → 📧
+  │     SMS     → 💬
+  │     WhatsApp→ 💚
+  │     Voice   → 📞
+  │
+  ├── Message summary (truncated to 60 chars)
+  ├── Timestamp: Relative format
+  └── Status Badge:
+        SENT      → Grey
+        DELIVERED → Blue
+        READ      → Green
+        CLICKED   → Purple
+        FAILED    → Red
+
+Widget Footer:
+  ├── Channel preference summary:
+  │     "Your preferred channel: WhatsApp"
+  └── CTA: "Manage Preferences" → /customer/settings/notifications
+
+6.2.10 Profile Summary Widget
+PROFILE SUMMARY WIDGET SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Component:      ProfileSummaryWidget
+Position:       Row 7, Full width
+Priority:       P2
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:            GET /customers/{id}
+Cache:          Redis key: customer:{id}:profile (shared with Welcome)
+Store:          customer.store.ts → customerProfile
+
+────────────────────────────────────────────────────────────────
+DISPLAY SECTIONS
+────────────────────────────────────────────────────────────────
+
+Profile Completion Card:
+  ├── Circular progress indicator: {profileCompletionPct}%
+  ├── Completed sections: checkmarks
+  ├── Incomplete sections: CTA chips
+  └── Overall status:
+        100%     → "Profile Complete ✅"
+        70-99%   → "Almost there!"
+        < 70%    → "Profile Incomplete — unlock more features"
+
+KYC Status Card:
+  ├── Status indicator:
+  │     APPROVED    → Green ✅
+  │     PENDING     → Orange ⏳
+  │     REJECTED    → Red ❌
+  │     NOT_STARTED → Grey ○
+  └── CTA: "View KYC Status" → /customer/kyc
+
+Customer Type Card:
+  ├── Current type display
+  ├── Type description
+  └── CTA: "Update Profile" → /customer/profile/edit
+
+6.3 DASHBOARD WIDGET ARCHITECTURE
+Reusable Widget Standards
+WIDGET STANDARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Every dashboard widget MUST implement the following interface:
+
+Widget Contract:
+───────────────
+  Props:
+    ├── widgetId: string           → Unique identifier
+    ├── title: string              → Display title
+    ├── isLoading: boolean         → Loading state flag
+    ├── error: Error | null        → Error state
+    ├── isEmpty: boolean           → Empty state flag
+    ├── lastRefreshedAt: Date      → Cache freshness indicator
+    ├── onRefresh: () => void      → Manual refresh handler
+    └── permissions: string[]      → Required permissions
+
+  Internal States:
+    ├── LOADING   → Skeleton UI shown
+    ├── ERROR     → Error state UI shown
+    ├── EMPTY     → Empty state UI shown
+    ├── STALE     → Data shown with "Refresh" indicator
+    └── READY     → Normal data display
+
+Widget Header (standard across all widgets):
+  ├── Widget Title
+  ├── Last refreshed timestamp (optional, on hover)
+  ├── Refresh icon button (on hover)
+  └── "View All" / navigation CTA (where applicable)
+
+Widget Container:
+  ├── Background: Card surface (theme-aware)
+  ├── Border radius: 12px
+  ├── Shadow: elevation-1 (from Section 3 theme)
+  ├── Padding: 20px
+  └── Minimum height: 120px (prevents layout shift)
+
+6.3.1 Widget Loading State
+WIDGET LOADING STATE
+════════════════════════════════════════════════════════════════
+
+Trigger:  isLoading = true
+
+Display:
+  ├── Widget header: Skeleton bar (80% width)
+  ├── Content area: Skeleton blocks matching widget shape
+  └── No spinner overlay (skeleton preferred per UX principle)
+
+Skeleton Shapes:
+  ├── Financial Snapshot  → 3 skeleton metric cards
+  ├── Recommendation      → 2 skeleton product cards
+  ├── Life Event Banner   → 1 skeleton event card
+  ├── Goal Tracker        → 2 skeleton goal rows
+  ├── Recent Activity     → 5 skeleton transaction rows
+  └── Notifications       → 4 skeleton notification rows
+
+Timing:
+  ├── Show skeleton immediately on mount
+  ├── Minimum display: 300ms (prevents flash)
+  └── Transition: Fade-out skeleton, fade-in content
+
+6.3.2 Widget Error State
+WIDGET ERROR STATE
+════════════════════════════════════════════════════════════════
+
+Trigger:  error !== null
+
+Display:
+  ├── Error icon: ⚠️
+  ├── Error message: Human-readable (not raw API error)
+  ├── Retry button: "Try Again" → calls onRefresh()
+  └── Support link: "Contact Support" → /help
+
+Error Message Mapping:
+  ├── 401   → "Session expired. Please log in again."
+  ├── 403   → "You don't have permission to view this."
+  ├── 404   → "Data not found."
+  ├── 429   → "Too many requests. Please wait a moment."
+  ├── 500   → "Something went wrong on our end. Retrying..."
+  └── Network → "No internet connection detected."
+
+Auto-Retry Logic:
+  ├── 500 errors: Auto-retry after 5s, max 3 attempts
+  ├── Network errors: Retry on reconnection (event listener)
+  └── 4xx errors: No auto-retry, show manual retry
+
+6.3.3 Widget Empty State
+WIDGET EMPTY STATE
+════════════════════════════════════════════════════════════════
+
+Trigger:  isEmpty = true (API returned empty array / null data)
+
+Per-Widget Empty States:
+────────────────────────
+
+Recommendations Empty:
+  ├── Illustration: Empty recommendations illustration
+  ├── Title: "No recommendations yet"
+  ├── Body: "Complete your profile for personalised offers"
+  └── CTA: "Complete Profile" → /customer/onboarding
+
+Life Events Empty:
+  ├── Title: "No life events detected"
+  ├── Body: "Tell us about your life plans"
+  └── CTA: "Share Your Plans" → /customer/life-events
+
+Goals Empty:
+  ├── Title: "No financial goals set"
+  ├── Body: "Set a goal and let AI help you achieve it"
+  └── CTA: "Set First Goal" → /customer/profile/goals
+
+Activity Empty:
+  ├── Title: "No recent transactions"
+  └── Body: "Your recent activity will appear here"
+
+Notifications Empty:
+  ├── Title: "All caught up!"
+  └── Body: "No new notifications"
+
+6.3.4 Widget Refresh Behaviour
+WIDGET REFRESH SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Refresh Triggers:
+  ├── Manual: User clicks refresh icon
+  ├── Auto:   TTL-based (per widget cache TTL)
+  ├── Event:  Kafka event consumed (widget-specific)
+  └── Focus:  App returns to foreground (visibilitychange)
+
+Stale Data Indicator:
+  Condition: (currentTime - lastRefreshedAt) > widgetTTL
+  Display:   "Last updated {X} minutes ago" below widget title
+  Behaviour: Data remains visible (stale-while-revalidate)
+
+Background Refresh:
+  ├── Widget does NOT show loading skeleton on background refresh
+  ├── Data updates silently
+  └── New data fades in (opacity transition)
+
+6.3.5 Widget Permission Guards
+WIDGET PERMISSION SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Widgets requiring specific conditions:
+
+Widget                   | Condition Required
+─────────────────────────┼──────────────────────────────────────
+Financial Snapshot        | profileCompletionPct >= 50%
+AI Recommendations        | profileCompletionPct >= 30%
+Goal Tracker              | profileCompletionPct >= 70%
+Communication Center      | kycStatus = APPROVED
+Product Portfolio         | kycStatus = APPROVED or PENDING
+Financial Health Score    | financialProfile is populated
+
+Fallback:
+  If condition NOT met → Show teaser version of widget
+  Teaser includes:
+    ├── Blurred/locked content overlay
+    ├── Completion requirement message
+    └── CTA to complete prerequisite
+
+6.4 AI RECOMMENDATION CENTER
+(Full-page view at /customer/recommendations)
+AI RECOMMENDATION CENTER — FULL PAGE SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Route:      /customer/recommendations
+Component:  RecommendationsPage.tsx
+Layout:     CustomerLayout
+
+This page expands the dashboard widget into a full recommendation
+management interface.
+
+────────────────────────────────────────────────────────────────
+6.4.1 PAGE HEADER
+────────────────────────────────────────────────────────────────
+
+Title:    "Your AI Recommendations"
+Subtitle: "Personalised based on your profile and life events"
+AI Badge: "Powered by BankMate AI"
+
+Context Summary Bar:
+  ├── Customer Type Badge
+  ├── Active Life Event tag (if present)
+  ├── Total recommendations count: "{N} recommendations"
+  └── Last updated timestamp
+
+────────────────────────────────────────────────────────────────
+6.4.2 FILTER & SORT BAR
+────────────────────────────────────────────────────────────────
+
+Category Filter Tabs:
+  [All] [Loans] [Credit Cards] [Insurance] [Investments] [Savings]
+
+Sort Options:
+  ├── Best Match (default: matchScore DESC)
+  ├── Eligibility First
+  ├── Lowest EMI
+  └── Newest First
+
+Life Event Filter:
+  Dropdown: "Show for: [All Events] / [Home Purchase] / [Marriage]…"
+  Populated from: activeLifeEvents list
+
+────────────────────────────────────────────────────────────────
+6.4.3 RECOMMENDATION CARDS (Full View)
+────────────────────────────────────────────────────────────────
+
+Extended from dashboard card with additional fields:
+
+Additional Sections:
+
+  Why This Product (Expanded):
+    ├── Full reasoning list (all factors, no truncation)
+    └── Data sources listed:
+          "Based on: Your income, savings goal, credit score"
+
+  Product Snapshot:
+    ├── Key product metrics (rate, tenure, limit, coverage)
+    ├── Eligibility criteria summary
+    └── Documents required (brief list)
+
+  Comparison Chip:
+    └── "Compare with Similar" → /customer/recommendations/compare
+        (adds product to comparison tray)
+
+  Suggested Actions (from AI):
+    Examples:
+      ├── "Improve credit score to qualify for better rate"
+      ├── "Upload salary slips to confirm eligibility"
+      └── "Apply before {date} for introductory offer"
+
+────────────────────────────────────────────────────────────────
+6.4.4 ELIGIBILITY SECTION
+────────────────────────────────────────────────────────────────
+
+Eligibility Check Panel (per recommendation):
+
+  Real-Time Eligibility Display:
+  ├── ELIGIBLE:
+  │     ✅ Green banner: "You are eligible for this product"
+  │     CTA: "Apply Now"
+  │
+  ├── LIKELY_ELIGIBLE:
+  │     🔵 Blue banner: "You may be eligible — check details"
+  │     Sub-text: "Submit documents to confirm eligibility"
+  │     CTA: "Check Eligibility" → product detail
+  │
+  └── NOT_ELIGIBLE:
+        ❌ Grey: "Currently ineligible"
+        Reason: "{reason from API}"
+        AI Tip: "You may qualify in {X} months if {condition}"
+        CTA: "Learn How to Qualify"
+
+API:    GET /recommendations/{recId}/eligibility
+Cache:  Redis key: recommendation:{recId}:eligibility (TTL: 5m)
+
+────────────────────────────────────────────────────────────────
+6.4.5 CONFIDENCE SCORE DISPLAY
+────────────────────────────────────────────────────────────────
+
+Visual: Semi-circular gauge
+Ranges:
+  ├── 90-100 → "Highly Confident" (Dark Green)
+  ├── 75-89  → "Confident"        (Green)
+  ├── 60-74  → "Moderate"         (Blue)
+  ├── 45-59  → "Exploratory"      (Orange)
+  └── < 45   → Not displayed (filtered out by AI agent)
+
+Tooltip on hover:
+  "This score reflects how well this product matches your
+   financial profile and current life situation."
+
+────────────────────────────────────────────────────────────────
+6.4.6 RECOMMENDATION HISTORY
+────────────────────────────────────────────────────────────────
+
+API:    GET /recommendations/{customerId}/history
+Store:  recommendations.store.ts → recommendationHistory
+
+Display:
+  ├── List of previously shown/dismissed recommendations
+  ├── Status per item: Viewed / Applied / Dismissed / Expired
+  └── "Re-evaluate" CTA for dismissed items
+        → POST /recommendations/{id}/reactivate
+
+6.5 FINANCIAL HEALTH DASHBOARD
+FINANCIAL HEALTH DASHBOARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Route:      /customer/profile/financial
+Component:  FinancialSnapshotPage.tsx
+Layout:     CustomerLayout
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:    GET /customers/{id}/financial
+Cache:  Redis key: customer:{id}:financial (TTL: 15m)
+Store:  customer.store.ts → financialProfile
+
+────────────────────────────────────────────────────────────────
+6.5.1 INCOME SUMMARY SECTION
+────────────────────────────────────────────────────────────────
+
+Fields:
+  ├── monthlyIncome       → Primary income bar
+  ├── additionalIncome    → Secondary income (if set)
+  └── totalIncome         → Sum display
+
+Visual: Stacked horizontal bar chart
+
+────────────────────────────────────────────────────────────────
+6.5.2 EXPENSE SUMMARY SECTION
+────────────────────────────────────────────────────────────────
+
+Fields:
+  ├── monthlyExpenses     → Fixed expenses
+  ├── existingEMI         → Loan repayments
+  └── discretionary       → Variable expenses (if tracked)
+
+Visual: Donut chart (category breakdown)
+Source: GET /transactions/{customerId}/categories (if available)
+        Fallback: Use financial profile fields
+
+────────────────────────────────────────────────────────────────
+6.5.3 SAVINGS SECTION
+────────────────────────────────────────────────────────────────
+
+Fields:
+  ├── monthlyIncome - monthlyExpenses - existingEMI = availableSavings
+  └── savingsRate = (availableSavings / monthlyIncome) × 100
+
+Visual: Gauge chart
+Labels:
+  ├── < 10% → "Low savings rate — consider reviewing expenses"
+  ├── 10-20% → "Average savings rate"
+  ├── 20-30% → "Good savings discipline"
+  └── > 30%  → "Excellent savings rate"
+
+AI Insight (from FinancialAnalysisAgent):
+  Displayed as contextual tip card below gauge.
+
+────────────────────────────────────────────────────────────────
+6.5.4 FINANCIAL HEALTH SCORE
+────────────────────────────────────────────────────────────────
+
+Composite score computed by FinancialAnalysisAgent
+Displayed as: Circular gauge with score out of 100
+
+Score Components:
+  ├── Credit Score Band     (weight: 30%)
+  ├── Savings Rate          (weight: 25%)
+  ├── EMI-to-Income Ratio   (weight: 25%)
+  └── Profile Completeness  (weight: 20%)
+
+Score Bands:
+  ├── 80-100 → "Excellent Financial Health" (Green)
+  ├── 60-79  → "Good Financial Health"       (Blue)
+  ├── 40-59  → "Fair — Room for Improvement" (Orange)
+  └── < 40   → "Needs Attention"              (Red)
+
+API:    GET /customers/{id}/financial
+Agent:  FinancialAnalysisAgent (existing)
+
+────────────────────────────────────────────────────────────────
+6.5.5 FINANCIAL INSIGHTS SECTION
+────────────────────────────────────────────────────────────────
+
+Source:  FinancialAnalysisAgent
+Display: Insight cards (max 3 on dashboard, all on full page)
+
+Insight Card Structure:
+  ├── Insight type icon
+  ├── Insight title
+  ├── Insight body (2-3 lines)
+  └── Action CTA (product or profile action)
+
+Example Insights:
+  ├── "Your EMI load is 42% — consider reducing before new loans"
+  ├── "Increasing SIP by ₹2,000/month can help reach your goal 8
+  │    months earlier"
+  └── "Your credit score improved 15 points this quarter"
+
+6.6 GOAL TRACKING DASHBOARD
+GOAL TRACKING DASHBOARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Route:      /customer/profile/goals
+Component:  GoalTrackingPage.tsx (within ProfileSetupWizard flow)
+Layout:     CustomerLayout
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:    GET /customers/{id}/goals
+        PUT /customers/{id}/goals
+Cache:  Redis key: customer:{id}:goals (TTL: 10m)
+Store:  customer.store.ts → financialGoals
+
+────────────────────────────────────────────────────────────────
+6.6.1 GOAL LIST VIEW
+────────────────────────────────────────────────────────────────
+
+Per goal card:
+  ├── Goal type icon
+  ├── Goal name
+  ├── Target: ₹{targetAmount} by {targetDate}
+  ├── Current: ₹{currentAmount} saved/invested
+  ├── Progress: Horizontal progress bar with %
+  ├── Months remaining
+  ├── Monthly contribution required:
+  │     Formula: (targetAmount - currentAmount) / monthsRemaining
+  └── AI Suggestion chip (if aiSuggestion is set)
+
+────────────────────────────────────────────────────────────────
+6.6.2 GOAL MILESTONES
+────────────────────────────────────────────────────────────────
+
+Milestone markers on progress bar:
+  ├── 25%  milestone → Achievement badge unlocked
+  ├── 50%  milestone → "Halfway There!" celebration micro-animation
+  ├── 75%  milestone → Push notification triggered (Kafka)
+  └── 100% milestone → "Goal Achieved!" celebration screen
+
+────────────────────────────────────────────────────────────────
+6.6.3 AI GOAL SUGGESTIONS
+────────────────────────────────────────────────────────────────
+
+Agent:   GoalDiscoveryAgent
+Trigger: Page load if goals count < 5
+
+Suggestion Card:
+  ├── "Based on your profile, we suggest setting a goal for:"
+  ├── Suggested goal type (with icon)
+  ├── Suggested target amount (AI-computed)
+  ├── "Add This Goal" CTA
+  └── "Skip" link
+
+API:    POST /customers/{id}/goals (to add suggested goal)
+
+6.7 PRODUCT PORTFOLIO DASHBOARD
+PRODUCT PORTFOLIO DASHBOARD SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Route:      /customer/applications (overview)
+            /customer/products/portfolio (full view)
+Component:  ProductPortfolioPage.tsx
+Layout:     CustomerLayout
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:    GET /applications/{customerId}
+        GET /products/customer/{id}
+Cache:  Redis key: applications:{customerId} (TTL: 5m)
+Store:  applications.store.ts → customerApplications
+        products.store.ts → customerProducts
+
+────────────────────────────────────────────────────────────────
+6.7.1 ACCOUNTS SECTION
+────────────────────────────────────────────────────────────────
+
+Source: Applications with type = SAVINGS_ACCOUNT / CURRENT_ACCOUNT
+Fields per card:
+  ├── Account type
+  ├── Account number (masked: XXXX1234)
+  ├── Status: Active / Pending / Dormant
+  └── CTA: "View Details"
+
+────────────────────────────────────────────────────────────────
+6.7.2 CARDS SECTION
+────────────────────────────────────────────────────────────────
+
+Source: Applications with category = CREDIT_CARD / DEBIT_CARD
+Fields per card:
+  ├── Card name
+  ├── Card number (masked)
+  ├── Card variant (Classic / Gold / Platinum / Premium)
+  ├── Status badge
+  └── CTA: "Manage Card"
+
+────────────────────────────────────────────────────────────────
+6.7.3 LOANS SECTION
+────────────────────────────────────────────────────────────────
+
+Source: Applications with category = PERSONAL_LOAN / HOME_LOAN /
+        VEHICLE_LOAN / EDUCATION_LOAN / BUSINESS_LOAN
+Fields per card:
+  ├── Loan type
+  ├── Outstanding amount
+  ├── EMI amount
+  ├── Next EMI date
+  ├── Loan tenure remaining
+  └── Progress bar: Repayment %
+
+────────────────────────────────────────────────────────────────
+6.7.4 INSURANCE SECTION
+────────────────────────────────────────────────────────────────
+
+Source: Applications with category = INSURANCE
+Fields per card:
+  ├── Policy type
+  ├── Sum insured
+  ├── Premium amount & frequency
+  ├── Renewal date (with alert if < 30 days)
+  └── CTA: "View Policy"
+
+────────────────────────────────────────────────────────────────
+6.7.5 INVESTMENTS SECTION
+────────────────────────────────────────────────────────────────
+
+Source: Applications with category = INVESTMENT / MUTUAL_FUND / FD
+Fields per card:
+  ├── Investment type
+  ├── Invested amount
+  ├── Current value (if available)
+  ├── Returns %
+  └── Maturity date (if applicable)
+
+────────────────────────────────────────────────────────────────
+6.7.6 APPLICATION STATUS SECTION
+────────────────────────────────────────────────────────────────
+
+Source: GET /applications/{customerId}?status=IN_PROGRESS,PENDING
+Shows: All in-progress applications
+
+Per Application Card:
+  ├── Product name
+  ├── Application ID
+  ├── Submission date
+  ├── Current stage: Submitted / Under Review / Approved / Rejected
+  ├── Stage progress bar (step indicator)
+  ├── Next action required (if any)
+  └── CTA: "Track Application" → /customer/applications/{id}
+
+Status Colour Mapping:
+  ├── SUBMITTED      → Blue
+  ├── UNDER_REVIEW   → Orange
+  ├── DOCS_REQUIRED  → Red (action required)
+  ├── APPROVED       → Green
+  ├── REJECTED       → Grey
+  └── DISBURSED      → Dark Green
+
+6.8 SMART COMMUNICATION CENTER
+SMART COMMUNICATION CENTER SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+Route:      /customer/notifications
+Component:  NotificationsPage.tsx
+Layout:     CustomerLayout
+
+This section surfaces communication history and preferences
+across all channels managed by the existing CommunicationAgent.
+
+────────────────────────────────────────────────────────────────
+DATA BINDING
+────────────────────────────────────────────────────────────────
+
+API:    GET /notifications/{customerId}
+        GET /notifications/{customerId}/history
+        PUT /notifications/{customerId}/preferences
+Cache:  Redis key: notifications:{customerId} (TTL: 2m)
+Store:  notifications.store.ts
+
+────────────────────────────────────────────────────────────────
+6.8.1 PUSH NOTIFICATIONS
+────────────────────────────────────────────────────────────────
+
+Source:  Backend push via FCM (existing implementation)
+Display:
+  ├── Notification list with read/unread state
+  ├── Grouped by: Today / Yesterday / Earlier
+  ├── Mark all as read button
+  └── Individual notification: mark read on click
+
+────────────────────────────────────────────────────────────────
+6.8.2 EMAIL
+────────────────────────────────────────────────────────────────
+
+Display:
+  ├── Email communication history (subject, date, status)
+  ├── Status: Sent / Delivered / Opened / Clicked
+  └── View in browser link (if available in payload)
+
+────────────────────────────────────────────────────────────────
+6.8.3 SMS
+────────────────────────────────────────────────────────────────
+
+Display:
+  ├── SMS log (message, timestamp, status)
+  ├── Status: Sent / Delivered / Failed
+  └── Masked phone number shown
+
+────────────────────────────────────────────────────────────────
+6.8.4 WHATSAPP
+────────────────────────────────────────────────────────────────
+
+Display:
+  ├── WhatsApp message history (template name, date, status)
+  ├── Status: Sent / Read / Replied
+  └── Message preview (first 80 chars)
+
+────────────────────────────────────────────────────────────────
+6.8.5 VOICE ENGAGEMENT
+────────────────────────────────────────────────────────────────
+
+Source:  GET /voice/campaigns/{customerId} (existing voice API)
+Display:
+  ├── Voice campaign history
+  ├── Per call: Campaign name, date/time, duration, outcome
+  ├── Outcomes: ANSWERED / NOT_ANSWERED / CALLBACK_REQUESTED
+  └── CTA: "Schedule a Callback" → POST /voice/callback
+
+────────────────────────────────────────────────────────────────
+6.8.6 COMMUNICATION TIMELINE
+────────────────────────────────────────────────────────────────
+
+Unified chronological view across all channels:
+  ├── Timeline format (vertical)
+  ├── Each entry: Channel icon, message summary, date, status
+  ├── Filterable by channel
+  └── Search: by keyword in message content
+
+────────────────────────────────────────────────────────────────
+6.8.7 COMMUNICATION PREFERENCES
+────────────────────────────────────────────────────────────────
+
+API:    PUT /notifications/{customerId}/preferences
+Fields:
+  ├── preferredChannel: [Push / Email / SMS / WhatsApp]
+  ├── doNotDisturb: time window
+  ├── language: [English / Hindi / Marathi]
+  └── frequency: [Immediate / Daily Digest / Weekly Summary]
+
+6.9 DASHBOARD STATES
+FULL DASHBOARD STATE MANAGEMENT
+════════════════════════════════════════════════════════════════
+
+6.9.1 LOADING STATE
+─────────────────────
+
+Trigger: Dashboard first load (no cache available)
+
+Display:
+  ├── Header skeleton (full width)
+  ├── Welcome area skeleton
+  ├── Row 2: Two skeleton cards side by side
+  ├── Row 3: Full-width skeleton (recommendation row)
+  ├── Row 4: Two skeleton cards
+  └── Rows 5-7: Progressive skeleton loading
+
+Load Priority Order:
+  1. Welcome area (fastest — Redis cache)
+  2. Life events banner
+  3. AI recommendations (slight delay — AI agent call)
+  4. Financial snapshot
+  5. Goals, activity, notifications (parallel)
+
+────────────────────────────────────────────────────────────────
+
+6.9.2 ERROR STATE
+──────────────────
+
+Trigger: All critical APIs (customer, recommendations) fail
+
+Display:
+  ├── Full-page error illustration
+  ├── Title: "Something went wrong"
+  ├── Body: "We're having trouble loading your dashboard"
+  ├── Retry button: Retries all failed API calls
+  └── Contact support link
+
+Partial Error (some widgets fail):
+  ├── Only affected widgets show error state
+  ├── Other widgets display normally
+  └── Toast: "Some sections couldn't load. Tap to retry."
+
+────────────────────────────────────────────────────────────────
+
+6.9.3 EMPTY STATE
+──────────────────
+
+Trigger: New customer, no data populated
+
+Display:
+  ├── Welcome illustration (onboarding-themed)
+  ├── Title: "Welcome to BankMate AI"
+  ├── Body: "Complete your profile to see personalised insights"
+  ├── Progress checklist:
+  │     □ Add personal information
+  │     □ Add financial details
+  │     □ Complete KYC
+  │     □ Share your goals
+  └── CTA: "Let's Get Started" → /customer/onboarding
+
+────────────────────────────────────────────────────────────────
+
+6.9.4 OFFLINE STATE
+────────────────────
+
+Trigger: navigator.onLine = false
+
+Display:
+  ├── Sticky banner: "You're offline — showing cached data"
+  ├── All widgets show last cached data (stale-while-revalidate)
+  ├── Refresh blocked — shows "Available when online" tooltip
+  └── Auto-dismiss banner when connection restored
+
+────────────────────────────────────────────────────────────────
+
+6.9.5 PERMISSION DENIED STATE
+───────────────────────────────
+
+Trigger: 403 on dashboard API call
+
+Display:
+  ├── Lock illustration
+  ├── Title: "Access Restricted"
+  ├── Body: "Your account doesn't have access to this section"
+  └── CTA: "Contact Support" → /help
+
+6.10 RESPONSIVE BEHAVIOUR
+RESPONSIVE DASHBOARD BEHAVIOUR
+════════════════════════════════════════════════════════════════
+
+Breakpoints (from Section 3 theme system):
+  ├── xs:   < 480px    (Mobile Small)
+  ├── sm:   480-767px  (Mobile Large)
+  ├── md:   768-1023px (Tablet)
+  ├── lg:   1024-1279px (Laptop)
+  └── xl:   1280px+    (Desktop)
+
+────────────────────────────────────────────────────────────────
+DESKTOP (xl: 1280px+)
+────────────────────────────────────────────────────────────────
+
+Layout: Sidebar (240px fixed) + Main content
+Grid: 12-column grid
+Widget layout:
+  ├── Row 1: Welcome — 12 cols
+  ├── Row 2: Financial (7 cols) + Life Events (5 cols)
+  ├── Row 3: Recommendations — 12 cols (4 cards visible)
+  ├── Row 4: Goals (6 cols) + Activity (6 cols)
+  ├── Row 5: Quick Actions — 12 cols (6 icons in row)
+  ├── Row 6: Notifications (6 cols) + Communication (6 cols)
+  └── Row 7: Profile Summary — 12 cols
+
+────────────────────────────────────────────────────────────────
+LAPTOP (lg: 1024–1279px)
+────────────────────────────────────────────────────────────────
+
+Layout: Sidebar (collapsed to icon-only, 64px) + Main content
+Grid: 12-column (reduced margins)
+Widget layout:
+  ├── Row 2: Financial (6 cols) + Life Events (6 cols)
+  ├── Row 3: Recommendations — 3 cards visible (horizontal scroll)
+  └── All other rows: Same as desktop, tighter padding
+
+────────────────────────────────────────────────────────────────
+TABLET (md: 768–1023px)
+────────────────────────────────────────────────────────────────
+
+Layout: No sidebar (bottom navigation bar)
+Grid: 8-column grid
+Widget layout:
+  ├── Row 2: Financial (8 cols full width), Life Events below
+  ├── Row 3: Recommendations — 2 cards visible (horizontal scroll)
+  ├── Row 4: Goals (8 cols), Activity below
+  └── Quick Actions: Grid of 3 per row
+
+────────────────────────────────────────────────────────────────
+MOBILE (sm/xs: < 768px)
+────────────────────────────────────────────────────────────────
+
+Layout: No sidebar (bottom navigation bar)
+Grid: 4-column grid (single column widgets)
+Widget layout:
+  ├── All widgets: Full width (4 cols)
+  ├── Recommendations: Horizontal swipe carousel (1 card at a time)
+  ├── Quick Actions: 3×2 grid
+  ├── Financial Snapshot: Vertical stacked cards
+  └── Tabs introduced for Goals / Activity / Notifications
+
+Touch Interactions:
+  ├── Swipe left/right on recommendation carousel
+  ├── Pull-to-refresh on dashboard
+  ├── Long press on widget → options (refresh / hide)
+  └── Swipe-to-dismiss on notification items
+
+Bottom Navigation Bar (mobile/tablet):
+  ├── Home (Dashboard)
+  ├── Products
+  ├── AI Chat (centre FAB)
+  ├── Applications
+  └── Profile
+
+6.11 ACCESSIBILITY
+WCAG 2.2 AA COMPLIANCE — DASHBOARD
+════════════════════════════════════════════════════════════════
+
+6.11.1 KEYBOARD NAVIGATION
+────────────────────────────
+
+Dashboard is fully operable via keyboard:
+
+Tab Order:
+  ├── Header navigation
+  ├── Widget cards (in visual order)
+  ├── Within each card: title → data → CTA
+  ├── Quick actions: left to right
+  └── Footer navigation
+
+Keys:
+  ├── Tab / Shift+Tab → Move between interactive elements
+  ├── Enter / Space  → Activate buttons/links
+  ├── Arrow keys     → Navigate within carousels/tabs
+  ├── Escape         → Close modals/drawers
+  └── R (custom)     → Refresh focused widget (announced via ARIA)
+
+Skip Navigation:
+  ├── Skip link at top: "Skip to main content"
+  └── Skip link: "Skip to AI Recommendations"
+
+────────────────────────────────────────────────────────────────
+6.11.2 SCREEN READER SUPPORT
+──────────────────────────────
+
+ARIA Attributes:
+
+Widget containers:
+  role="region" aria-label="{widgetTitle}"
+
+Loading state:
+  aria-busy="true" aria-label="Loading {widgetTitle}"
+
+Error state:
+  role="alert" aria-label="Error loading {widgetTitle}"
+
+Recommendation cards:
+  role="article"
+  aria-label="{productName} — {matchScore}% Match — {eligibilityStatus}"
+
+Progress bars:
+  role="progressbar"
+  aria-valuenow="{value}"
+  aria-valuemin="0"
+  aria-valuemax="100"
+  aria-label="{goalName} progress"
+
+Live regions for real-time updates:
+  aria-live="polite" on notification count
+  aria-live="assertive" on critical errors
+
+────────────────────────────────────────────────────────────────
+6.11.3 COLOUR CONTRAST
+────────────────────────
+
+All text meets WCAG 2.2 AA minimum:
+  ├── Normal text: ≥ 4.5:1 contrast ratio
+  ├── Large text (18px+): ≥ 3:1 contrast ratio
+  └── Interactive elements: ≥ 3:1 against background
+
+Status colours supplemented with icons:
+  ├── ✅ for success (not colour alone)
+  ├── ⚠️ for warning
+  └── ❌ for error
+
+────────────────────────────────────────────────────────────────
+6.11.4 LOCALIZATION
+─────────────────────
+
+Languages supported (existing i18n setup from Section 3):
+  ├── English  (en) — default
+  ├── Hindi    (hi)
+  └── Marathi  (mr)
+
+Locale files: /public/locales/{lang}/customer.json
+
+Currency formatting:
+  ├── ₹{amount} formatted via currency.utils.ts
+  ├── Lakhs/Crores notation for large values:
+  │     ₹1,50,000 → "₹1.5 Lakhs"
+  │     ₹1,00,00,000 → "₹1 Crore"
+  └── Uses Intl.NumberFormat with locale='en-IN'
+
+Date formatting:
+  ├── DD MMM YYYY for absolute dates
+  └── Relative ("2 days ago") via date.utils.ts
+
+RTL support: Not required for current supported languages.
+
+6.12 DASHBOARD ANALYTICS
+DASHBOARD ANALYTICS SPECIFICATION
+════════════════════════════════════════════════════════════════
+
+All analytics events use existing analytics.api.ts
+No new analytics infrastructure added.
+
+────────────────────────────────────────────────────────────────
+6.12.1 TRACKED EVENTS
+──────────────────────
+
+Event Name                      | Trigger
+────────────────────────────────┼────────────────────────────────────────────
+dashboard_loaded                | Dashboard page mounted
+dashboard_load_time_ms          | Time from mount to all P0 widgets loaded
+widget_viewed                   | Widget scrolled into viewport (>50% visible)
+widget_refresh_clicked          | Manual refresh button clicked
+recommendation_card_viewed      | Recommendation card in viewport > 2s
+recommendation_cta_clicked      | Any CTA on recommendation card
+recommendation_dismissed        | "Not Interested" clicked
+life_event_banner_clicked       | Life event CTA clicked
+quick_action_clicked            | Any quick action tile clicked
+goal_cta_clicked                | Goal tracker "Add Goal" clicked
+profile_nudge_clicked           | Profile completion CTA clicked
+kyc_nudge_clicked               | KYC banner CTA clicked
+notification_clicked            | Notification item clicked
+communication_preference_saved  | Channel preferences updated
+application_tracked_clicked     | Application status CTA clicked
+financial_health_viewed         | Financial health section opened
+
+────────────────────────────────────────────────────────────────
+6.12.2 CONVERSION FUNNELS
+──────────────────────────
+
+FUNNEL 1: Recommendation to Application
+  1. dashboard_loaded
+  2. recommendation_card_viewed
+  3. recommendation_cta_clicked (View Details)
+  4. product_detail_viewed (tracked on product page)
+  5. application_started
+  6. application_submitted
+
+FUNNEL 2: Profile Completion
+  1. profile_nudge_clicked
+  2. onboarding_step_completed (per step)
+  3. profile_completion_100
+
+FUNNEL 3: Life Event to Product
+  1. life_event_banner_clicked
+  2. recommendations_filtered_by_life_event
+  3. recommendation_cta_clicked
+  4. application_started
+
+────────────────────────────────────────────────────────────────
+6.12.3 KPIs SURFACED ON DASHBOARD
+───────────────────────────────────
+
+KPI                          | Source
+─────────────────────────────┼──────────────────────────────────────
+Recommendation Click Rate    | recommendation_cta_clicked /
+                             | recommendation_card_viewed
+Profile Completion Rate      | Avg profileCompletionPct across sessions
+KYC Conversion Rate          | kyc_nudge_clicked → KYC approved
+Life Event CTA Rate          | life_event_banner_clicked /
+                             | dashboard_loaded (with life event)
+Application Start Rate       | application_started /
+                             | recommendation_cta_clicked (Apply Now)
+Dashboard Engagement Score   | Composite of above metrics
+
+6.13 MERMAID DASHBOARD DIAGRAM
+#mermaid-r1bi-r55 { font-family: "Anthropic Sans", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; fill: rgb(25, 25, 25); }
+#mermaid-r1bi-r55 .edge-animation-slow { stroke-dashoffset: 900; animation: 50s linear 0s infinite normal none running dash; stroke-linecap: round; stroke-dasharray: 9, 5 !important; }
+#mermaid-r1bi-r55 .edge-animation-fast { stroke-dashoffset: 900; animation: 20s linear 0s infinite normal none running dash; stroke-linecap: round; stroke-dasharray: 9, 5 !important; }
+#mermaid-r1bi-r55 .error-icon { fill: rgb(204, 120, 92); }
+#mermaid-r1bi-r55 .error-text { fill: rgb(51, 135, 163); stroke: rgb(51, 135, 163); }
+#mermaid-r1bi-r55 .edge-thickness-normal { stroke-width: 1px; }
+#mermaid-r1bi-r55 .edge-thickness-thick { stroke-width: 3.5px; }
+#mermaid-r1bi-r55 .edge-pattern-solid { stroke-dasharray: 0; }
+#mermaid-r1bi-r55 .edge-thickness-invisible { stroke-width: 0; fill: none; }
+#mermaid-r1bi-r55 .edge-pattern-dashed { stroke-dasharray: 3; }
+#mermaid-r1bi-r55 .edge-pattern-dotted { stroke-dasharray: 2; }
+#mermaid-r1bi-r55 .marker { fill: rgb(145, 145, 141); stroke: rgb(145, 145, 141); }
+#mermaid-r1bi-r55 .marker.cross { stroke: rgb(145, 145, 141); }
+#mermaid-r1bi-r55 svg { font-family: "Anthropic Sans", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; }
+#mermaid-r1bi-r55 p { margin: 0px; }
+#mermaid-r1bi-r55 .label { font-family: "Anthropic Sans", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: rgb(25, 25, 25); }
+#mermaid-r1bi-r55 .cluster-label text { fill: rgb(51, 135, 163); }
+#mermaid-r1bi-r55 .cluster-label span { color: rgb(51, 135, 163); }
+#mermaid-r1bi-r55 .cluster-label span p { background-color: transparent; }
+#mermaid-r1bi-r55 .label text, #mermaid-r1bi-r55 span { fill: rgb(25, 25, 25); color: rgb(25, 25, 25); }
+#mermaid-r1bi-r55 .node rect, #mermaid-r1bi-r55 .node circle, #mermaid-r1bi-r55 .node ellipse, #mermaid-r1bi-r55 .node polygon, #mermaid-r1bi-r55 .node path { fill: rgb(240, 240, 235); stroke: rgb(217, 216, 213); stroke-width: 1px; }
+#mermaid-r1bi-r55 .rough-node .label text, #mermaid-r1bi-r55 .node .label text, #mermaid-r1bi-r55 .image-shape .label, #mermaid-r1bi-r55 .icon-shape .label { text-anchor: middle; }
+#mermaid-r1bi-r55 .node .katex path { fill: rgb(0, 0, 0); stroke: rgb(0, 0, 0); stroke-width: 1px; }
+#mermaid-r1bi-r55 .rough-node .label, #mermaid-r1bi-r55 .node .label, #mermaid-r1bi-r55 .image-shape .label, #mermaid-r1bi-r55 .icon-shape .label { text-align: center; }
+#mermaid-r1bi-r55 .node.clickable { cursor: pointer; }
+#mermaid-r1bi-r55 .root .anchor path { stroke-width: 0; stroke: rgb(145, 145, 141); fill: rgb(145, 145, 141) !important; }
+#mermaid-r1bi-r55 .arrowheadPath { fill: rgb(11, 11, 11); }
+#mermaid-r1bi-r55 .edgePath .path { stroke: rgb(145, 145, 141); stroke-width: 1px; }
+#mermaid-r1bi-r55 .flowchart-link { stroke: rgb(145, 145, 141); fill: none; }
+#mermaid-r1bi-r55 .edgeLabel { background-color: rgb(245, 230, 216); text-align: center; }
+#mermaid-r1bi-r55 .edgeLabel p { background-color: rgb(245, 230, 216); }
+#mermaid-r1bi-r55 .edgeLabel rect { opacity: 0.5; background-color: rgb(245, 230, 216); fill: rgb(245, 230, 216); }
+#mermaid-r1bi-r55 .labelBkg { background-color: rgba(245, 230, 216, 0.5); }
+#mermaid-r1bi-r55 .cluster rect { fill: rgb(204, 120, 92); stroke: rgb(138, 115, 107); stroke-width: 1px; }
+#mermaid-r1bi-r55 .cluster text { fill: rgb(51, 135, 163); }
+#mermaid-r1bi-r55 .cluster span { color: rgb(51, 135, 163); }
+#mermaid-r1bi-r55 div.mermaidTooltip { position: absolute; text-align: center; max-width: 200px; padding: 2px; font-family: "Anthropic Sans", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; background: rgb(204, 120, 92); border: 1px solid rgb(138, 115, 107); border-radius: 2px; pointer-events: none; z-index: 100; }
+#mermaid-r1bi-r55 .flowchartTitleText { text-anchor: middle; font-size: 18px; fill: rgb(25, 25, 25); }
+#mermaid-r1bi-r55 rect.text { fill: none; stroke-width: 0; }
+#mermaid-r1bi-r55 .icon-shape, #mermaid-r1bi-r55 .image-shape { background-color: rgb(245, 230, 216); text-align: center; }
+#mermaid-r1bi-r55 .icon-shape p, #mermaid-r1bi-r55 .image-shape p { background-color: rgb(245, 230, 216); padding: 2px; }
+#mermaid-r1bi-r55 .icon-shape .label rect, #mermaid-r1bi-r55 .image-shape .label rect { opacity: 0.5; background-color: rgb(245, 230, 216); fill: rgb(245, 230, 216); }
+#mermaid-r1bi-r55 .label-icon { display: inline-block; height: 1em; overflow: visible; vertical-align: -0.125em; }
+#mermaid-r1bi-r55 .node .label-icon path { fill: currentcolor; stroke: revert; stroke-width: revert; }
+#mermaid-r1bi-r55 .node .neo-node { stroke: rgb(217, 216, 213); }
+#mermaid-r1bi-r55 [data-look="neo"].node rect, #mermaid-r1bi-r55 [data-look="neo"].cluster rect, #mermaid-r1bi-r55 [data-look="neo"].node polygon { stroke: url("#mermaid-r1bi-r55-gradient"); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-r1bi-r55 [data-look="neo"].node path { stroke: url("#mermaid-r1bi-r55-gradient"); stroke-width: 1px; }
+#mermaid-r1bi-r55 [data-look="neo"].node .outer-path { filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-r1bi-r55 [data-look="neo"].node .neo-line path { stroke: rgb(217, 216, 213); filter: none; }
+#mermaid-r1bi-r55 [data-look="neo"].node circle { stroke: url("#mermaid-r1bi-r55-gradient"); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-r1bi-r55 [data-look="neo"].node circle .state-start { fill: rgb(0, 0, 0); }
+#mermaid-r1bi-r55 [data-look="neo"].icon-shape .icon { fill: url("#mermaid-r1bi-r55-gradient"); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-r1bi-r55 [data-look="neo"].icon-shape .icon-neo path { stroke: url("#mermaid-r1bi-r55-gradient"); filter: drop-shadow(rgb(185, 185, 185) 1px 2px 2px); }
+#mermaid-r1bi-r55 :root { --mermaid-font-family: "Anthropic Sans",system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }NoYesELIGIBLELIKELYNOT_ELIGIBLENoYesUser AuthenticatedLoad Customer DashboardProfile Complete?Show Profile Nudge BannerFull Dashboard LoadWelcome AreaParallel API CallsGET /customers/idGET /life-events/customerIdGET/recommendations/customerIdGET /customers/id/financialGET/transactions/customerIdGET/notifications/customerIdGET /customers/id/goalsGET/applications/customerIdWelcome WidgetProfile Summary WidgetLife Events BannerAI Recommendation CenterFinancial SnapshotRecent ActivityNotifications WidgetGoal TrackerApplication StatusEligible?Apply Now CTACheck Eligibility CTAView Details CTAApplication JourneyProduct Detail PageLife Event DetailFiltered RecommendationsGoals Exist?GoalDiscoveryAgentSuggestionGoal Progress DisplayFinancial Health PageNotification CenterProfile PageKafka:LIFE_EVENT_DETECTEDKafka:RECOMMENDATION_UPDATEDKafka:NOTIFICATION_CREATEDKafka:KYC_STATUS_UPDATEDRedis: customer:id:profileRedis: recommendations:idRedis: life-events:idRedis: customer:id:financial
+
+6.14 DASHBOARD SEQUENCE DIAGRAM
+DASHBOARD LOAD SEQUENCE
+════════════════════════════════════════════════════════════════
+
+Actor: Customer Browser
+Systems: Frontend Store, API Gateway, Backend Services,
+         Redis Cache, AI Agents, Kafka
+
+SEQUENCE:
+
+Browser         Store           API GW          Backend         Redis           AI Agent
+  │               │               │               │               │               │
+  │──Load /customer/dashboard──►  │               │               │               │
+  │               │               │               │               │               │
+  │◄──AuthGuard check─────────────│               │               │               │
+  │               │               │               │               │               │
+  │──Dispatch: loadDashboard()───►│               │               │               │
+  │               │               │               │               │               │
+  │               │──GET /customers/{id}─────────►│               │               │
+  │               │               │               │──Redis GET───►│               │
+  │               │               │               │◄──Cache Hit───│               │
+  │               │◄──customerProfile─────────────│               │               │
+  │◄──Render Welcome Widget───────│               │               │               │
+  │               │               │               │               │               │
+  │               │──GET /life-events/{id}────────►│               │               │
+  │               │               │               │──Redis GET───►│               │
+  │               │               │               │◄──Cache Hit───│               │
+  │               │◄──lifeEvents──────────────────│               │               │
+  │◄──Render Life Events Banner───│               │               │               │
+  │               │               │               │               │               │
+  │               │──GET /recommendations/{id}────►│               │               │
+  │               │               │               │──Redis GET───►│               │
+  │               │               │               │◄──Cache Miss──│               │
+  │               │               │               │──Invoke Agent─────────────────►│
+  │               │               │               │◄──Ranked List─────────────────│
+  │               │               │               │──Redis SET───►│               │
+  │               │◄──recommendations─────────────│               │               │
+  │◄──Render Recommendation Cards─│               │               │               │
+  │               │               │               │               │               │
+  │               │──GET /customers/{id}/financial►│               │               │
+  │               │               │               │──Redis GET───►│               │
+  │               │               │               │◄──Cache Hit───│               │
+  │               │◄──financialProfile─────────────│               │               │
+  │◄──Render Financial Snapshot───│               │               │               │
+  │               │               │               │               │               │
+  │               │──[Parallel]──────────────────►│               │               │
+  │               │  GET /customers/{id}/goals     │               │               │
+  │               │  GET /transactions/{id}?limit=5│               │               │
+  │               │  GET /notifications/{id}       │               │               │
+  │               │  GET /applications/{id}        │               │               │
+  │               │◄──[All responses]─────────────│               │               │
+  │◄──Render All Remaining Widgets│               │               │               │
+  │               │               │               │               │               │
+  │               │               │               │               │               │
+  │──[User clicks Recommendation]─│               │               │               │
+  │               │               │               │               │               │
+  │               │──POST /recommendations/{id}/view──────────────►│               │
+  │               │               │──Kafka: RECOMMENDATION_VIEWED─►│               │
+  │               │               │               │               │               │
+  │──Navigate: /customer/applications/new─────────│               │               │
+
+6.15 FUTURE SCALABILITY
+FUTURE SCALABILITY PLAN
+════════════════════════════════════════════════════════════════
+
+All future enhancements are ADDITIVE only.
+No architectural changes to existing approved sections.
+
+────────────────────────────────────────────────────────────────
+6.15.1 WIDGET EXTENSIBILITY
+────────────────────────────
+
+New widgets can be added by:
+  1. Creating new widget component in features/{feature}/components/
+  2. Adding to dashboard grid without modifying existing widgets
+  3. Registering in dashboard.store.ts widget manifest
+  4. Mapping to existing or future API endpoint
+
+Widget manifest pattern (for dynamic dashboard config):
+  ├── Stored in: /public/config/app-config.json
+  ├── Feature flag controlled
+  └── Loaded via existing feature-flags.json
+
+────────────────────────────────────────────────────────────────
+6.15.2 PERSONALISATION ENGINE
+───────────────────────────────
+
+Future: Dashboard layout can be AI-personalised
+  ├── Widget order adjusted by RecommendationEngine
+  ├── Widgets hidden/shown based on customer segment
+  └── A/B testing layout variants via feature flags
+Backend: No change. Uses existing AI agent infrastructure.
+
+────────────────────────────────────────────────────────────────
+6.15.3 MICRO-FRONTEND READINESS
+─────────────────────────────────
+
+Each widget is self-contained (isolated state, isolated API calls).
+This enables future micro-frontend decomposition:
+  ├── Recommendation widget → Independent MFE
+  ├── Financial health widget → Independent MFE
+  └── Goals widget → Independent MFE
+No code change required at interface boundaries.
+
+────────────────────────────────────────────────────────────────
+6.15.4 PWA DASHBOARD
+──────────────────────
+
+Existing service worker (registered in RootLayout):
+  ├── Cache all static assets
+  ├── Background sync for analytics events
+  └── Offline-first for cached dashboard data
+No new infrastructure. Uses existing PWA setup from Section 3.
+
+────────────────────────────────────────────────────────────────
+6.15.5 ADDITIONAL LANGUAGE SUPPORT
+────────────────────────────────────
+
+Current: English, Hindi, Marathi
+Future: Tamil, Telugu, Gujarati, Bengali
+  ├── Add locale JSON file to /public/locales/{lang}/
+  ├── Register in I18nProvider.tsx
+  └── No backend change required.
+
+────────────────────────────────────────────────────────────────
+6.15.6 WHITE-LABEL DASHBOARD
+──────────────────────────────
+
+Theme variables in styles/theme/ (Section 3) support white-labelling:
+  ├── Brand colours via CSS variables
+  ├── Logo swap via app-config.json
+  ├── Feature flag controlled widget visibility
+  └── No code change required per brand.
+
+✅ SECTION 6 COMPLIANCE CHECK
+COMPLIANCE VERIFICATION
+════════════════════════════════════════════════════════════════
+
+✅ Backend Architecture:      UNCHANGED
+✅ Database Schema:           UNCHANGED
+✅ API Endpoints:             UNCHANGED (only mapped)
+✅ AI Agents:                 UNCHANGED (only consumed)
+✅ Kafka Events:              UNCHANGED (only consumed)
+✅ Redis Strategy:            UNCHANGED (only referenced)
+✅ Business Logic:            UNCHANGED
+✅ Authentication:            UNCHANGED
+✅ Routing:                   UNCHANGED (only referenced)
+✅ Section 1–5 Compatibility: CONFIRMED
+
+✅ New Content: Dashboard Architecture only
+✅ Documentation Only: Confirmed
+✅ No React Code: Confirmed
+✅ No TypeScript Code: Confirmed
+✅ No CSS Code: Confirmed
+✅ PS3 Focus: Customer Acquisition, Onboarding, Recommendations,
+              Digital Adoption, Engagement, Conversion — CONFIRMED
+
+SECTION 6 DELIVERABLES:
+═══════════════════════════════════════════════════════════════
+
+✅ 6.1  Dashboard Architecture Overview
+✅ 6.2  Customer Dashboard (10 widgets specified)
+✅ 6.3  Widget Architecture (standards, 5 states)
+✅ 6.4  AI Recommendation Center (full page)
+✅ 6.5  Financial Health Dashboard
+✅ 6.6  Goal Tracking Dashboard
+✅ 6.7  Product Portfolio Dashboard
+✅ 6.8  Smart Communication Center
+✅ 6.9  Dashboard States (5 states)
+✅ 6.10 Responsive Behaviour (4 breakpoints)
+✅ 6.11 Accessibility (WCAG 2.2 AA)
+✅ 6.12 Dashboard Analytics (events, funnels, KPIs)
+✅ 6.13 Mermaid Dashboard Diagram
+✅ 6.14 Dashboard Sequence Diagram
+✅ 6.15 Future Scalability (6 dimensions)
+
+SECTION 6 COMPLETED
+WAITING FOR APPROVALYou are out of free messages until 10:50 PMUpgrade
+Sonnet 4.6 LowClaude is AI and can make mistakes. Please double-check responses.ShareContentFrontendBlueprint_Section4_Part2_Context.txttxtFrontendBlueprint_Section4_Part1_Context.txttxtFrontendBlueprint_Section3_Part2_Context.txttxtFrontendBlueprint_Section3_Part1_Context.txttxtFrontendBlueprint_Section2_Context.txttxtFrontendBlueprint_Section1_Context (1).txttxtFrontendBlueprint_Section1_Context.txttxtBankMate_Master_Context_Section5.txt29 linestxtYou are a Principal Enterprise Banking Solution Architect with 20+ years of experience designing AI-first digital banking platforms.
+
+You have already been provided with all previously approved project documents (PRD, TechSpec, Schema, Implementation Plan, Rules, and Frontend Blueprint Sections 1–pasted(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.nonce='a8++y9pH77qtI4Vn7MuPDw==';d.innerHTML="window.__CF$cv$params={r:'a113f63b7b9c57ad',t:'MTc4MjM5MDM5OQ=='};var a=document.createElement('script');a.nonce='a8++y9pH77qtI4Vn7MuPDw==';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();

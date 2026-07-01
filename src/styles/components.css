@@ -1,0 +1,114 @@
+/* ============================================================================
+   BankMate AI — Component-level CSS
+   Reusable component styles that complement shadcn/ui primitives.
+   Tokens consumed from global.css @theme variables.
+   ========================================================================== */
+
+@layer components {
+  /* ── Card primitive ─────────────────────────────────────────────── */
+  .bm-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Section 3 widget frame */
+  .bm-widget {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  .bm-widget-grid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  @media (min-width: 768px) {
+    .bm-widget-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .bm-widget-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .bm-card-hover {
+    transition: box-shadow 200ms ease, transform 200ms ease;
+  }
+
+  .bm-card-hover:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  /* ── Notification card ──────────────────────────────────────────── */
+  .bm-notification-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-notification-card);
+  }
+
+  /* ── Channel chips (Section 10 communication channels) ──────────── */
+  .bm-channel-push {
+    background-color: var(--color-channel-push-bg);
+    color: var(--color-channel-push-text);
+  }
+  .bm-channel-email {
+    background-color: var(--color-channel-email-bg);
+    color: var(--color-channel-email-text);
+  }
+  .bm-channel-sms {
+    background-color: var(--color-channel-sms-bg);
+    color: var(--color-channel-sms-text);
+  }
+  .bm-channel-whatsapp {
+    background-color: var(--color-channel-whatsapp-bg);
+    color: var(--color-channel-whatsapp-text);
+  }
+  .bm-channel-voice {
+    background-color: var(--color-channel-voice-bg);
+    color: var(--color-channel-voice-text);
+  }
+  .bm-channel-inapp {
+    background-color: var(--color-channel-inapp-bg);
+    color: var(--color-channel-inapp-text);
+  }
+
+  /* ── AI Copilot bubble ──────────────────────────────────────────── */
+  .bm-ai-bubble {
+    background-color: var(--color-ai-bubble);
+    border: 1px solid var(--color-primary-100);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-ai-bubble);
+  }
+
+  /* ── Status dot ─────────────────────────────────────────────────── */
+  .bm-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    display: inline-block;
+  }
+  .bm-status-dot--success {
+    background-color: var(--color-success);
+  }
+  .bm-status-dot--warning {
+    background-color: var(--color-warning);
+  }
+  .bm-status-dot--error {
+    background-color: var(--color-error);
+  }
+  .bm-status-dot--muted {
+    background-color: var(--color-gray-400);
+  }
+}
