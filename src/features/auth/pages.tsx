@@ -168,7 +168,7 @@ function DemoAccessPanel() {
     setLoading(role);
     const user = DEMO_USERS[role];
     useAuthStore.getState().setSession({
-      user: { ...user, kycStatus: 'APPROVED' },
+      user: { ...user, roles: [...user.roles], kycStatus: 'APPROVED' },
       accessToken: `demo-access-token-${role}`,
       refreshToken: `demo-refresh-token-${role}`,
       expiresIn: 86400,
