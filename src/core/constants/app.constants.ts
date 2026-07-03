@@ -4,7 +4,7 @@
 // Global application-wide constants (non-feature).
 // ============================================================================
 
-export const APP_NAME = 'BankMate AI';
+export const APP_NAME = 'SbiSetu Ai';
 export const APP_VERSION = __APP_VERSION__ ?? '1.0.0';
 
 export const SUPPORTED_LANGUAGES = ['en', 'hi', 'mr'] as const;

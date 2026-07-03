@@ -340,7 +340,7 @@ export function LoginPage() {
           Sign in
         </Button>
         <p className="text-center text-sm text-gray-500">
-          New to BankMate?{' '}
+          New to SbiSetu Ai?{' '}
           <Link to={ROUTES.REGISTER} className="font-semibold text-primary-700 hover:underline">
             Create account
           </Link>
@@ -397,7 +397,7 @@ export function RegisterPage() {
   };
 
   return (
-    <AuthCard icon={UserPlus} title="Create your account" subtitle="Set up your BankMate customer profile.">
+    <AuthCard icon={UserPlus} title="Create your account" subtitle="Set up your SbiSetu Ai customer profile.">
       <form className="space-y-4" onSubmit={onSubmit}>
         {formError ? <Alert variant="error">{formError}</Alert> : null}
         <Field label="Full name" htmlFor="fullName" required error={errors.fullName}>

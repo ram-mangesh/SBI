@@ -43,7 +43,7 @@ const primaryRoutes = [
   },
   {
     label: 'AI Chat',
-    description: 'Open the BankMate copilot and agent conversations.',
+    description: 'Open the SbiSetu Ai copilot and agent conversations.',
     to: ROUTES.CHAT,
     icon: Bot,
     tone: 'border-emerald-200 bg-emerald-50 text-emerald-700',
