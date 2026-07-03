@@ -102,7 +102,7 @@ export function HomePage() {
             <Landmark className="h-5 w-5" aria-hidden="true" />
           </span>
           <span>
-            <span className="block text-base font-bold leading-5">BankMate AI</span>
+            <span className="block text-base font-bold leading-5">SbiSetu Ai</span>
             <span className="block text-xs font-medium text-muted-app">Phase 1 banking workspace</span>
           </span>
         </Link>
@@ -128,7 +128,7 @@ export function HomePage() {
           </span>
 
           <h1 className="mt-5 max-w-3xl text-4xl font-black leading-tight tracking-normal text-gray-950 sm:text-5xl lg:text-6xl">
-            BankMate AI
+            SbiSetu Ai
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-gray-600 sm:text-lg">
             A role-based AI banking frontend with customer journeys, recommendations, applications,
